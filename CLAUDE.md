@@ -24,6 +24,10 @@ Open-source, version-controlled evidence platform for transparent, reproducible 
 8. **IDs:** `boe:<type>:<ulid>` stable across versions; `version_id` bare ULID per version. Crockford Base32 — no I, L, O, U; first char 0–7.
 9. **Validation must never be vacuous.** `validate.py` fails on empty runs; fixtures prove both directions.
 
+## AI contribution limits
+
+`AI_GUIDELINES.md` governs what Claude Code (and any AI tool) may do in this repo. Read it before touching investigation content. Summary: AI may draft structure, write tooling/schema code, and assist search/summarisation — but may **not** generate evidence claims, assign confidence levels, produce source citations, or have AI-drafted assessment text pass as human analysis without disclosure. This applies to investigation *content* work, not to schema/validator engineering.
+
 ## Commands
 
 ```bash
@@ -31,6 +35,7 @@ pip install -r scripts/requirements.txt   # pinned deps (needs jsonschema>=4.18 
 python3 scripts/validate.py --self-test   # valid fixtures must pass, invalid must fail
 python3 scripts/validate.py               # validate investigations (fails if none exist; --allow-empty to override)
 python3 -m pytest tests/ -q               # 17 tests, fixture-driven
+python3 -c "from ulid import ULID; print(ULID())"  # generate a new version_id/id ULID
 ```
 
 CI (`.github/workflows/validate-schema.yml`) runs pytest + self-test + investigations with `--allow-empty` (remove that flag when the first real investigation lands).
@@ -41,7 +46,6 @@ CI (`.github/workflows/validate-schema.yml`) runs pytest + self-test + investiga
 - `fixtures/valid/harbour-tender-inquiry/` — complete fictional package; must pass every check. `fixtures/invalid/*` — five packages, one violated invariant each.
 - `scripts/boe_files.py` — shared file discovery. All validators use it (scans .yaml AND .yml, rejects duplicate YAML keys). Any new validator must too.
 - `investigations/_template/` — copy to start an investigation. Includes `package.yaml` and `links/`.
-- `.trash-init-repo.command` — untracked leftover the sandbox couldn't delete; safe to remove manually.
 
 ## Known open items (deliberately deferred — see DECISIONS.md end section)
 
