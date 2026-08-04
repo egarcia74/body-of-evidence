@@ -1,0 +1,53 @@
+# Example: Evidence entity
+# Evidence is a specific extraction from a source, tied to one or more claims.
+# See schema/evidence.schema.json for the full schema.
+
+id: "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
+type: "evidence"
+source_id: "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
+
+# Evidence must not be orphaned — must reference at least one claim
+claim_ids:
+  - "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+
+evidence_type: "supporting"                 # supporting | contradictory | contextual | corroborating | impeaching
+
+description: >
+  The Church Committee Book II states that the FBI participated in the CIA's
+  HTLINGUAL mail-opening program, reading the contents of letters without
+  obtaining a warrant, from 1958 to 1973.
+
+# Prefer direct quotation over paraphrase
+quote: |
+  "From 1958 to 1973, the FBI received from the CIA photographs of the outside of
+  envelopes and, on occasion, the contents of letters to and from American citizens
+  which had been opened covertly by the CIA. The FBI received nearly 2,300 items
+  from the CIA's New York mail opening project."
+
+location: "Page 67, Section C: The FBI and Mail Opening Programs"
+
+# Interpretation is separate from what the source says
+interpretation: >
+  The quoted passage directly establishes that the FBI received and read opened
+  mail from American citizens obtained without a warrant, corroborating the claim
+  that the program operated from 1953–1973 with FBI participation.
+
+reliability_notes: >
+  This passage appears in the body of the Committee's report, not a footnote or
+  appendix. The Committee had subpoena power and access to classified records.
+  The specific year range stated here (1958–1973) for FBI participation differs
+  slightly from the CIA program start date of 1953 — this distinction is noted
+  in the claim's context field.
+
+contributor:
+  identifier: "github-username"
+  role: "contributor"
+  conflict_of_interest: "none"
+
+tags:
+  - "htlingual"
+  - "mail-surveillance"
+  - "fbi"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

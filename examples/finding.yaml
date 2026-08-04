@@ -1,0 +1,54 @@
+# Example: Finding entity
+# Findings are high-level conclusions synthesised from multiple claims.
+# See schema/finding.schema.json for the full schema.
+
+id: "boe:finding:01HV8QKJZ9XTMK3P2R7N5W6D4K"
+type: "finding"
+investigation_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+status: "published"
+
+title: "The FBI and CIA conducted warrantless domestic surveillance programs for over two decades"
+
+statement: >
+  The Church Committee documented that the FBI and CIA operated multiple
+  warrantless domestic surveillance programs — including mail opening, physical
+  surveillance, and informant infiltration — targeting American citizens from the
+  early 1950s through the mid-1970s. These programs were conducted without
+  statutory authority or judicial oversight, and their existence was not disclosed
+  to the public or Congress until the Committee's investigation.
+
+claim_ids:
+  - "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+  # Additional claim IDs would appear here
+
+confidence_level: 5
+confidence_label: "confirmed"
+
+rationale: >
+  This finding synthesises multiple claims, each individually confirmed by the
+  Committee's primary source reports. The finding is supported by the Committee's
+  own conclusions in Books II and III, by CIA and FBI testimony, and by
+  subsequent historical scholarship. The finding is stated to reflect what the
+  Church Committee documented — it does not extend to claims beyond the
+  Committee's own findings.
+
+caveats: >
+  This finding reflects what the Church Committee documented and concluded.
+  Classified appendices that remain unreleased may contain additional information
+  that would modify or extend these findings. The finding does not constitute a
+  legal determination. Whether specific individuals bear legal liability is
+  beyond the scope of this investigation.
+
+contributor:
+  identifier: "github-username"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+
+tags:
+  - "church-committee"
+  - "domestic-surveillance"
+  - "intelligence"
+  - "civil-liberties"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

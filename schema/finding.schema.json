@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/finding.schema.json",
+  "title": "Finding",
+  "description": "A high-level conclusion synthesised from multiple claims and evidence items. Findings represent the investigation's conclusions. They are more interpretive than claims and must reference the claims they synthesise.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "investigation_id", "statement", "claim_ids", "confidence_level", "confidence_label", "rationale", "status", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:finding:<ulid>"
+    },
+    "type": {
+      "const": "finding",
+      "description": "Entity type discriminator. Must be 'finding'."
+    },
+    "investigation_id": {
+      "$ref": "common.schema.json#/$defs/investigationReference"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "A short descriptive title for the finding."
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 4096,
+      "description": "The finding stated precisely. Findings may be more interpretive than claims but must still be grounded in the evidence."
+    },
+    "claim_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "Claims that this finding synthesises. At least one required."
+    },
+    "confidence_level": {
+      "$ref": "common.schema.json#/$defs/confidenceLevel"
+    },
+    "confidence_label": {
+      "$ref": "common.schema.json#/$defs/confidenceLabel"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Why the underlying claims, taken together, support this finding at the stated confidence level."
+    },
+    "caveats": {
+      "type": "string",
+      "description": "Important limitations, gaps, or conditions on this finding."
+    },
+    "status": {
+      "$ref": "common.schema.json#/$defs/lifecycleStatus"
+    },
+    "contributor": {
+      "$ref": "common.schema.json#/$defs/contributor"
+    },
+    "tags": {
+      "$ref": "common.schema.json#/$defs/tags"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "revision_history": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/revision_ref" }
+    }
+  },
+  "additionalProperties": false
+}

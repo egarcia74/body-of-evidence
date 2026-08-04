@@ -1,0 +1,50 @@
+# Example: Assessment entity
+# Assessments evaluate claims and must include a written rationale.
+# See schema/assessment.schema.json for the full schema.
+
+id: "boe:assessment:01HV8QKJZ9XTMK3P2R7N5W6D4J"
+type: "assessment"
+claim_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+status: "published"
+
+confidence_level: 5                         # 1=speculative | 2=contested | 3=plausible | 4=probable | 5=confirmed
+confidence_label: "confirmed"
+
+# Rationale is mandatory and must be substantive
+rationale: >
+  The claim is supported by the Church Committee's own published report — a
+  primary source produced by a committee with subpoena power and access to
+  classified records. The report specifically states that the FBI participated
+  in the HTLINGUAL mail-opening program from 1958 to 1973 and received nearly
+  2,300 items. This primary source is unambiguous, publicly available, and has
+  not been credibly disputed in the intervening 50 years. No contradictory
+  primary source has been identified. The program's existence was confirmed by
+  both the CIA and FBI in their testimony to the Committee. The 1953 start date
+  in the claim refers to the CIA program overall; FBI participation beginning in
+  1958 is accurately reflected in the evidence.
+
+evidence_considered:
+  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
+  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4I"
+
+contradictory_evidence: []                  # No contradictory evidence identified
+
+confidence_factors:
+  evidence_strength: "strong"               # Direct quotation from a primary source document
+  source_quality: "high"                    # Official Senate report with subpoena-backed evidence
+  corroboration: "strong"                   # CIA and FBI testimony to the Committee
+  completeness: "substantial_gaps"          # Some classified appendices remain unreleased
+  alternative_explanations: "none_credible"
+  context_integrity: "full_context"
+
+what_would_change_assessment: >
+  Declassification of contradictory records showing the Committee's report
+  was inaccurate would lower confidence. No such records are known to exist.
+
+assessor:
+  identifier: "github-username"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

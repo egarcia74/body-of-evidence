@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/investigation.schema.json",
+  "title": "Investigation",
+  "description": "A bounded inquiry with a defined scope, stated methodology, and lifecycle state. The Investigation entity is the container for all related claims, evidence, sources, and findings.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "title", "slug", "status", "scope", "lead_investigator", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:investigation:<ulid>"
+    },
+    "type": {
+      "const": "investigation",
+      "description": "Entity type discriminator. Must be 'investigation'."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Human-readable title of the investigation."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "URL-safe kebab-case identifier. Matches the investigations/ subdirectory name. Example: 'church-committee'."
+    },
+    "status": {
+      "$ref": "common.schema.json#/$defs/lifecycleStatus"
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 1024,
+      "description": "One to three sentences summarising the investigation's scope and purpose."
+    },
+    "scope": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "What questions this investigation addresses and what time period or events it covers."
+        },
+        "in_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit list of topics, events, or questions that are within scope."
+        },
+        "out_of_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit list of topics, events, or questions that are explicitly excluded."
+        },
+        "time_period": {
+          "type": "object",
+          "properties": {
+            "start": { "$ref": "common.schema.json#/$defs/isoDate" },
+            "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+          },
+          "description": "The time period covered by the investigation."
+        }
+      },
+      "additionalProperties": false
+    },
+    "lead_investigator": {
+      "$ref": "common.schema.json#/$defs/contributor"
+    },
+    "contributors": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/contributor" },
+      "description": "Additional contributors to this investigation."
+    },
+    "methodology_notes": {
+      "type": "string",
+      "description": "Any investigation-specific methodological notes that supplement the platform methodology."
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime",
+      "description": "When the investigation was first created."
+    },
+    "published_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime",
+      "description": "When the investigation was first published (moved to 'published' status)."
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime",
+      "description": "When the investigation was last updated."
+    },
+    "tags": {
+      "$ref": "common.schema.json#/$defs/tags"
+    },
+    "related_investigations": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/investigationReference" },
+      "description": "Other investigations that overlap or are directly related."
+    },
+    "revision_history": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/revision_ref" },
+      "description": "Ordered list of Revision entity IDs documenting changes to this investigation."
+    }
+  },
+  "additionalProperties": false
+}

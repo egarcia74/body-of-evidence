@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/event.schema.json",
+  "title": "Event",
+  "description": "A dated occurrence relevant to an investigation. Events are the atomic units of timelines.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "title", "date", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:event:<ulid>"
+    },
+    "type": {
+      "const": "event",
+      "description": "Entity type discriminator. Must be 'event'."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Brief descriptive title for the event."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "Description of what occurred. Should be based on documented evidence, not assertion."
+    },
+    "date": {
+      "$ref": "common.schema.json#/$defs/isoDate",
+      "description": "Date the event occurred. Use the most precise date available."
+    },
+    "date_precision": {
+      "type": "string",
+      "enum": ["exact", "approximate", "estimated", "unknown"],
+      "description": "How precise the date is."
+    },
+    "date_notes": {
+      "type": "string",
+      "description": "Notes on date uncertainty or how the date was determined."
+    },
+    "location": {
+      "type": "string",
+      "description": "Where the event occurred."
+    },
+    "investigation_ids": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/investigationReference" }
+    },
+    "claim_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "Claims that assert or contest the nature of this event."
+    },
+    "source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:source:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "Sources that document this event."
+    },
+    "person_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:person:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "People who were involved in or present at this event."
+    },
+    "organisation_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:organisation:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "Organisations involved in or responsible for this event."
+    },
+    "tags": {
+      "$ref": "common.schema.json#/$defs/tags"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

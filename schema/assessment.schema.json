@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/assessment.schema.json",
+  "title": "Assessment",
+  "description": "A structured evaluation of a claim's evidential support, including a confidence level and a written rationale. Assessments are made by investigators applying the platform methodology.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "claim_id", "confidence_level", "confidence_label", "rationale", "assessor", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:assessment:<ulid>"
+    },
+    "type": {
+      "const": "assessment",
+      "description": "Entity type discriminator. Must be 'assessment'."
+    },
+    "claim_id": {
+      "type": "string",
+      "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The claim being assessed."
+    },
+    "confidence_level": {
+      "$ref": "common.schema.json#/$defs/confidenceLevel"
+    },
+    "confidence_label": {
+      "$ref": "common.schema.json#/$defs/confidenceLabel"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Written explanation of why this confidence level was assigned. Must describe: what evidence was weighed, why it supports this level, what contradictory evidence exists, and what new evidence would change the assessment."
+    },
+    "evidence_considered": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:evidence:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "IDs of Evidence entities considered in this assessment."
+    },
+    "contradictory_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:evidence:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "IDs of Evidence entities that argue against the claim."
+    },
+    "confidence_factors": {
+      "type": "object",
+      "description": "Structured assessment of the individual confidence factors from the methodology.",
+      "properties": {
+        "evidence_strength": {
+          "type": "string",
+          "enum": ["strong", "moderate", "weak", "absent"],
+          "description": "Whether evidence is direct or circumstantial, first-hand or reported."
+        },
+        "source_quality": {
+          "type": "string",
+          "enum": ["high", "moderate", "low", "unverified"],
+          "description": "Quality of the underlying sources."
+        },
+        "corroboration": {
+          "type": "string",
+          "enum": ["strong", "partial", "single_source", "none"],
+          "description": "Whether multiple independent sources corroborate the claim."
+        },
+        "completeness": {
+          "type": "string",
+          "enum": ["complete", "substantial_gaps", "significant_gaps", "incomplete"],
+          "description": "Whether the evidence base is reasonably complete."
+        },
+        "alternative_explanations": {
+          "type": "string",
+          "enum": ["none_credible", "possible_but_unlikely", "viable", "equally_likely"],
+          "description": "Whether credible alternative explanations exist."
+        },
+        "context_integrity": {
+          "type": "string",
+          "enum": ["full_context", "minor_gaps", "context_uncertain", "context_problematic"],
+          "description": "Whether evidence is being interpreted in proper context."
+        }
+      },
+      "additionalProperties": false
+    },
+    "what_would_change_assessment": {
+      "type": "string",
+      "description": "Explicit statement of what new evidence or information would change this confidence level."
+    },
+    "assessor": {
+      "$ref": "common.schema.json#/$defs/contributor"
+    },
+    "status": {
+      "$ref": "common.schema.json#/$defs/lifecycleStatus"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "revision_history": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/revision_ref" }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,27 @@
+# Body of Evidence — CODEOWNERS
+#
+# These owners are automatically requested for review when a PR touches
+# the listed paths.
+#
+# Format: <pattern> <owner1> <owner2> ...
+
+# Default owner for everything not matched below
+*                               @your-org/maintainers
+
+# Schema changes require maintainer review (two reviewers)
+schema/                         @your-org/maintainers
+schema/common.schema.json       @your-org/maintainers
+
+# Core platform documentation
+ARCHITECTURE.md                 @your-org/maintainers
+METHODOLOGY.md                  @your-org/maintainers
+GOVERNANCE.md                   @your-org/maintainers
+DECISIONS.md                    @your-org/maintainers
+
+# CI/CD configuration
+.github/                        @your-org/maintainers
+scripts/                        @your-org/maintainers
+
+# Investigations — per-investigation ownership is set in each investigation's
+# investigation.yaml lead_investigator field. This is a fallback.
+investigations/                 @your-org/maintainers

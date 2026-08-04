@@ -1,0 +1,33 @@
+# Example: Relationship entity
+# Relationships connect any two entities with a typed, directional link.
+# See schema/relationship.schema.json for the full schema.
+
+id: "boe:relationship:01HV8QKJZ9XTMK3P2R7N5W6D4Q"
+type: "relationship"
+
+from_id: "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4L"   # Frank Church
+from_type: "person"
+
+to_id: "boe:organisation:01HV8QKJZ9XTMK3P2R7N5W6D4M"   # Church Committee
+to_type: "organisation"
+
+relationship_type: "chaired"
+
+description: >
+  Senator Frank Church served as the chair of the Select Committee from its
+  establishment on January 27, 1975, through its conclusion in May 1976.
+
+period:
+  start: "1975-01-27"
+  end: "1976-05-19"
+
+confidence_level: 5                         # Well-documented; uncontested
+
+source_ids:
+  - "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
+
+investigation_ids:
+  - "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

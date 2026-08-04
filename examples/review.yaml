@@ -1,0 +1,52 @@
+# Example: Review entity
+# Reviews are formal peer assessments — endorsements, corrections, or challenges.
+# See schema/review.schema.json for the full schema.
+
+id: "boe:review:01HV8QKJZ9XTMK3P2R7N5W6D4P"
+type: "review"
+subject_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+subject_type: "investigation"
+review_type: "endorsement"
+
+reviewer:
+  identifier: "peer-reviewer-username"
+  role: "reviewer"
+  conflict_of_interest: "none"
+
+outcome: "endorsed"
+
+summary: >
+  The investigation correctly applies the platform methodology. All claims are
+  falsifiable and atomic. Evidence traces correctly to sources. Sources have
+  documented provenance. Confidence levels are appropriately reasoned.
+  Minor clarification recommended on the HTLINGUAL date range.
+
+detailed_notes: >
+  Reviewed claims, evidence, and assessments against the platform methodology.
+  The lead investigator has correctly separated evidence from interpretation.
+  The use of direct quotation rather than paraphrase is exemplary. The
+  confidence rationales are substantive and explain what would change the
+  assessment. One concern: the HTLINGUAL claim uses 1953 as the program start
+  date without clarifying that FBI participation began in 1958. This creates
+  a potential misreading. Recommend clarification before publication.
+
+specific_concerns:
+  - concern: "The HTLINGUAL claim date range (1953–1973) does not clarify that FBI participation began in 1958, not 1953. The 1953 date refers to CIA program inception."
+    severity: "minor"
+    referenced_entity_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+
+response:
+  responder:
+    identifier: "github-username"
+    role: "lead_investigator"
+    conflict_of_interest: "none"
+  response_text: >
+    Accepted. Will revise the claim statement to clarify the distinction between
+    the CIA program start (1953) and FBI participation start (1958). Revision
+    created as boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4O.
+  responded_at: "2026-08-04T00:00:00Z"
+
+resolved_by_revision_id: "boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4O"
+
+created_at: "2026-08-04T00:00:00Z"
+resolved_at: "2026-08-04T00:00:00Z"

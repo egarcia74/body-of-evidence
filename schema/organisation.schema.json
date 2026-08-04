@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/organisation.schema.json",
+  "title": "Organisation",
+  "description": "An entity (government body, company, institution, committee) that is relevant to one or more investigations.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "name", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:organisation:<ulid>"
+    },
+    "type": {
+      "const": "organisation",
+      "description": "Entity type discriminator. Must be 'organisation'."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Official name of the organisation."
+    },
+    "abbreviation": {
+      "type": "string",
+      "maxLength": 32,
+      "description": "Common abbreviation (e.g., 'FBI', 'NIH', 'WHO')."
+    },
+    "organisation_type": {
+      "type": "string",
+      "enum": [
+        "government_agency",
+        "legislative_body",
+        "judicial_body",
+        "military",
+        "intelligence_agency",
+        "corporation",
+        "ngo",
+        "academic_institution",
+        "media_organisation",
+        "committee",
+        "other"
+      ]
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Country or jurisdiction (e.g., 'United States', 'United Kingdom', 'European Union')."
+    },
+    "parent_organisation_id": {
+      "type": "string",
+      "pattern": "^boe:organisation:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "If this organisation is a sub-unit of another, the parent's ID."
+    },
+    "active_period": {
+      "type": "object",
+      "properties": {
+        "start": { "$ref": "common.schema.json#/$defs/isoDate" },
+        "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+      },
+      "description": "When this organisation existed or was active."
+    },
+    "relevance": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Why this organisation is relevant to the investigation(s) it appears in."
+    },
+    "investigation_ids": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/investigationReference" }
+    },
+    "tags": {
+      "$ref": "common.schema.json#/$defs/tags"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

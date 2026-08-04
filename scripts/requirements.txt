@@ -1,0 +1,17 @@
+# Body of Evidence — Validation Script Dependencies
+# Install with: pip install -r scripts/requirements.txt
+
+# YAML parsing
+pyyaml>=6.0.1
+
+# JSON Schema validation (supports draft 2020-12)
+jsonschema>=4.21.0
+
+# ULID support (for ID format validation)
+python-ulid>=2.2.0
+
+# HTTP requests (for dead link checking)
+requests>=2.31.0
+
+# Rich terminal output
+rich>=13.7.0

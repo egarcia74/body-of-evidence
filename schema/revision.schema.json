@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/revision.schema.json",
+  "title": "Revision",
+  "description": "A documented change to any entity that was previously in published state. Revisions are how the platform avoids silent rewrites. The old entity is preserved and marked superseded; the new entity is the current version; the Revision records the change.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "entity_id", "entity_type", "reason", "author", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:revision:<ulid>"
+    },
+    "type": {
+      "const": "revision",
+      "description": "Entity type discriminator. Must be 'revision'."
+    },
+    "entity_id": {
+      "type": "string",
+      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The ID of the entity being revised."
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": ["investigation", "claim", "evidence", "source", "assessment", "finding", "person", "organisation", "event", "timeline", "relationship", "review"],
+      "description": "The type of the entity being revised."
+    },
+    "superseded_entity_id": {
+      "type": "string",
+      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The ID of the old entity that this revision supersedes (if the revision creates a new entity version)."
+    },
+    "new_entity_id": {
+      "type": "string",
+      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The ID of the new entity created by this revision (if applicable)."
+    },
+    "revision_type": {
+      "type": "string",
+      "enum": [
+        "correction",
+        "addition",
+        "removal",
+        "confidence_change",
+        "scope_change",
+        "status_change",
+        "challenge_resolution",
+        "new_evidence"
+      ],
+      "description": "The nature of the change."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Why this revision was made. Must be specific."
+    },
+    "what_changed": {
+      "type": "string",
+      "description": "Description of what specifically changed. For data changes, describe the old value and new value."
+    },
+    "triggered_by_review_id": {
+      "type": "string",
+      "pattern": "^boe:review:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "If this revision was triggered by a formal challenge or review, the Review entity ID."
+    },
+    "author": {
+      "$ref": "common.schema.json#/$defs/contributor"
+    },
+    "approved_by": {
+      "$ref": "common.schema.json#/$defs/contributor",
+      "description": "The maintainer or reviewer who approved this revision."
+    },
+    "git_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "The Git commit hash where this revision was made."
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

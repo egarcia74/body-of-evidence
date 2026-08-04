@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+.venv/
+venv/
+env/
+.env
+
+# Node (future tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Generated output (do not commit generated markdown or site)
+_site/
+_generated/
+*.generated.md
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets and credentials (never commit these)
+.env
+.env.local
+*.pem
+*.key
+secrets/
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Validation reports (generated, not source)
+validation-report.json
+validation-report.txt

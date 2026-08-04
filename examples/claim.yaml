@@ -1,0 +1,41 @@
+# Example: Claim entity
+# A claim is a single, atomic, falsifiable assertion.
+# See schema/claim.schema.json for the full schema.
+
+id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+type: "claim"
+investigation_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+status: "published"
+claim_status: "supported"                   # unassessed | supported | partially_supported | contested | refuted | unresolvable
+
+statement: >
+  The Church Committee's Book II (1976) documented that the FBI opened the mail of
+  American citizens without a warrant in a program designated HTLINGUAL, which ran
+  from 1953 to 1973.
+
+# Context provides background but is NOT itself evidence
+context: >
+  HTLINGUAL was a CIA mail-opening program that targeted correspondence between
+  U.S. citizens and the Soviet Union. The Church Committee reviewed the program
+  and reported its findings in Book III as well as Book II.
+
+evidence_ids:
+  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
+  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4I"
+
+assessment_ids:
+  - "boe:assessment:01HV8QKJZ9XTMK3P2R7N5W6D4J"
+
+contributor:
+  identifier: "github-username"
+  role: "contributor"
+  conflict_of_interest: "none"
+
+tags:
+  - "mail-surveillance"
+  - "htlingual"
+  - "cia"
+  - "fourth-amendment"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

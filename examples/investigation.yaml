@@ -1,0 +1,57 @@
+# Example: Investigation entity
+# This is an annotated example. Replace all values for real use.
+# See schema/investigation.schema.json for the full schema.
+
+id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+type: "investigation"
+title: "Example Investigation: Senate Select Committee on Intelligence Activities"
+slug: "church-committee"                    # Must match investigations/ subdirectory name
+status: "published"                         # draft | review | published | revised | superseded | archived
+
+summary: >
+  An investigation into the documented activities and findings of the U.S. Senate
+  Select Committee to Study Governmental Operations with Respect to Intelligence
+  Activities (the Church Committee), 1975–1976.
+
+scope:
+  description: >
+    This investigation covers the Church Committee's documented findings about
+    domestic surveillance, covert operations, and intelligence community oversight
+    failures between 1947 and 1975.
+  in_scope:
+    - "Church Committee final reports (Books I–VI)"
+    - "Documented COINTELPRO activities"
+    - "Documented assassination plots reviewed by the committee"
+    - "Domestic mail opening programs"
+  out_of_scope:
+    - "Post-1976 intelligence reforms (FISA Act, etc.)"
+    - "Classified appendices not publicly released"
+  time_period:
+    start: "1947"
+    end: "1976"
+
+lead_investigator:
+  identifier: "github-username"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+
+contributors:
+  - identifier: "contributor-a"
+    role: "contributor"
+    conflict_of_interest: "none"
+
+methodology_notes: >
+  This investigation relies exclusively on publicly released Church Committee
+  reports, supplemental documents, and contemporary newspaper records.
+  Classified appendices are noted as gaps.
+
+created_at: "2026-08-04T00:00:00Z"
+published_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"
+
+tags:
+  - "intelligence"
+  - "congress"
+  - "domestic-surveillance"
+  - "1970s"
+  - "united-states"

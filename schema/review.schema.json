@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/review.schema.json",
+  "title": "Review",
+  "description": "A formal peer review of an investigation, finding, or claim. Reviews are part of the permanent record of an investigation. They can endorse, correct, or formally challenge content.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "subject_id", "subject_type", "review_type", "reviewer", "outcome", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:review:<ulid>"
+    },
+    "type": {
+      "const": "review",
+      "description": "Entity type discriminator. Must be 'review'."
+    },
+    "subject_id": {
+      "type": "string",
+      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The ID of the entity being reviewed."
+    },
+    "subject_type": {
+      "type": "string",
+      "enum": ["investigation", "claim", "finding", "assessment"],
+      "description": "The type of the entity being reviewed."
+    },
+    "review_type": {
+      "type": "string",
+      "enum": [
+        "endorsement",
+        "correction",
+        "challenge",
+        "methodology_review",
+        "conflict_of_interest_flag"
+      ],
+      "description": "The type of review."
+    },
+    "reviewer": {
+      "$ref": "common.schema.json#/$defs/contributor"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "endorsed",
+        "correction_accepted",
+        "correction_rejected",
+        "challenge_upheld",
+        "challenge_rejected",
+        "inconclusive"
+      ],
+      "description": "The outcome of the review."
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "One-paragraph summary of the review."
+    },
+    "detailed_notes": {
+      "type": "string",
+      "description": "Full review notes, including specific methodological concerns or supporting arguments."
+    },
+    "specific_concerns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["concern", "severity"],
+        "properties": {
+          "concern": {
+            "type": "string",
+            "description": "Description of the specific concern."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor", "informational"]
+          },
+          "referenced_entity_id": {
+            "type": "string",
+            "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+            "description": "The specific entity ID this concern relates to."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "counter_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:evidence:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "IDs of evidence submitted as part of a challenge."
+    },
+    "response": {
+      "type": "object",
+      "description": "The lead investigator's response to this review.",
+      "properties": {
+        "responder": { "$ref": "common.schema.json#/$defs/contributor" },
+        "response_text": { "type": "string" },
+        "responded_at": { "$ref": "common.schema.json#/$defs/isoDateTime" }
+      },
+      "additionalProperties": false
+    },
+    "resolved_by_revision_id": {
+      "type": "string",
+      "pattern": "^boe:revision:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "If this review resulted in a revision, the Revision entity ID."
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "resolved_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/source.schema.json",
+  "title": "Source",
+  "description": "A primary or secondary document, recording, or artefact from which evidence is extracted. Sources have documented provenance, a type classification, and a quality tier.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "source_type", "title", "provenance", "quality_tier", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:source:<ulid>"
+    },
+    "type": {
+      "const": "source",
+      "description": "Entity type discriminator. Must be 'source'."
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "primary_document",
+        "testimony",
+        "data",
+        "audio_video",
+        "photograph",
+        "correspondence",
+        "publication",
+        "news_report",
+        "analysis",
+        "other"
+      ],
+      "description": "The type of source material."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Official title of the source document, or a descriptive title if no official one exists."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Brief description of what this source is and why it is relevant."
+    },
+    "date": {
+      "$ref": "common.schema.json#/$defs/isoDate",
+      "description": "Date the source was created or published."
+    },
+    "authors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Authors, signatories, or issuing organisations."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL where the source can be accessed."
+    },
+    "archive_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Persistent archived copy URL (web.archive.org, archive.ph, etc.)."
+    },
+    "location": {
+      "type": "string",
+      "description": "Physical or institutional location (e.g., 'National Archives, RG 272, Box 14')."
+    },
+    "quality_tier": {
+      "type": "string",
+      "enum": ["A", "B", "C", "D", "E"],
+      "description": "Source quality tier: A=verified_primary, B=probable_primary, C=credible_secondary, D=unverified, E=disputed."
+    },
+    "quality_tier_rationale": {
+      "type": "string",
+      "description": "Explanation of why this quality tier was assigned."
+    },
+    "provenance": {
+      "$ref": "common.schema.json#/$defs/provenance"
+    },
+    "language": {
+      "type": "string",
+      "description": "Language of the source (ISO 639-1 code, e.g., 'en', 'fr')."
+    },
+    "pages": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of pages, if applicable."
+    },
+    "classification_at_time": {
+      "type": "string",
+      "description": "Classification level at the time of creation (e.g., 'TOP SECRET', 'CONFIDENTIAL', 'UNCLASSIFIED')."
+    },
+    "current_classification": {
+      "type": "string",
+      "description": "Current classification level, if declassified or changed."
+    },
+    "related_source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:source:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "IDs of related source documents."
+    },
+    "tags": {
+      "$ref": "common.schema.json#/$defs/tags"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

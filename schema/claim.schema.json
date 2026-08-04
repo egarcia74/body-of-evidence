@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/claim.schema.json",
+  "title": "Claim",
+  "description": "A single, atomic, falsifiable assertion made within an investigation. Claims are the testable units of an investigation. Each claim must be either supported, contested, refuted, or unresolved by the available evidence.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "investigation_id", "statement", "status", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:claim:<ulid>"
+    },
+    "type": {
+      "const": "claim",
+      "description": "Entity type discriminator. Must be 'claim'."
+    },
+    "investigation_id": {
+      "$ref": "common.schema.json#/$defs/investigationReference",
+      "description": "The investigation this claim belongs to."
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 2048,
+      "description": "The claim stated precisely and falsifiably. Must be a single atomic assertion. Must be in past tense for historical events."
+    },
+    "status": {
+      "$ref": "common.schema.json#/$defs/lifecycleStatus"
+    },
+    "claim_status": {
+      "type": "string",
+      "enum": ["unassessed", "supported", "partially_supported", "contested", "refuted", "unresolvable"],
+      "description": "The current evidential status of the claim, distinct from lifecycle status."
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:evidence:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "IDs of Evidence entities that bear on this claim."
+    },
+    "assessment_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:assessment:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "IDs of Assessment entities evaluating this claim."
+    },
+    "related_claim_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "IDs of related or contradictory claims within the same or other investigations."
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Background context necessary to understand the claim. Does not constitute evidence."
+    },
+    "contributor": {
+      "$ref": "common.schema.json#/$defs/contributor"
+    },
+    "tags": {
+      "$ref": "common.schema.json#/$defs/tags"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "revision_history": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/revision_ref" }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,35 @@
+# Example: Person entity
+# Recording a person is a factual record of relevance, not an accusation.
+# See schema/person.schema.json for the full schema.
+
+id: "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4L"
+type: "person"
+display_name: "Frank Church"
+full_name: "Frank Forrester Church III"
+is_pseudonymous: false
+
+roles:
+  - "U.S. Senator (D-Idaho, 1957–1981)"
+  - "Chair, Senate Select Committee to Study Governmental Operations with Respect to Intelligence Activities (1975–1976)"
+
+relevance: >
+  Frank Church chaired the Senate committee that conducted the investigation
+  that bears his name. His leadership shaped the scope and findings of the
+  Committee's work.
+
+date_of_birth: "1924-07-25"
+date_of_death: "1984-04-07"
+nationality: "United States"
+
+organisations:
+  - "boe:organisation:01HV8QKJZ9XTMK3P2R7N5W6D4M"   # U.S. Senate
+
+investigation_ids:
+  - "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+
+tags:
+  - "senator"
+  - "church-committee"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

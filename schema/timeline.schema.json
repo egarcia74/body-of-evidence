@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/timeline.schema.json",
+  "title": "Timeline",
+  "description": "An ordered sequence of events within an investigation, optionally covering a specific sub-topic or thread.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "investigation_id", "title", "event_ids", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:timeline:<ulid>"
+    },
+    "type": {
+      "const": "timeline",
+      "description": "Entity type discriminator. Must be 'timeline'."
+    },
+    "investigation_id": {
+      "$ref": "common.schema.json#/$defs/investigationReference"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Title describing what this timeline covers."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "What this timeline covers and why it is organised this way."
+    },
+    "event_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^boe:event:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "Event IDs in chronological order. The ordering is the timeline's primary contribution."
+    },
+    "period": {
+      "type": "object",
+      "properties": {
+        "start": { "$ref": "common.schema.json#/$defs/isoDate" },
+        "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+      },
+      "description": "The time period this timeline spans."
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Notes on gaps, disputed dating, or the basis for the chronological ordering."
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

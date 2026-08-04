@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/relationship.schema.json",
+  "title": "Relationship",
+  "description": "A typed, directional connection between any two entities. Relationships allow the evidence model to express who knew whom, which organisations were connected, which events triggered other events, and similar structural connections.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "type", "from_id", "from_type", "to_id", "to_type", "relationship_type", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Unique identifier in format boe:relationship:<ulid>"
+    },
+    "type": {
+      "const": "relationship",
+      "description": "Entity type discriminator. Must be 'relationship'."
+    },
+    "from_id": {
+      "type": "string",
+      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The source entity of this relationship."
+    },
+    "from_type": {
+      "type": "string",
+      "enum": ["person", "organisation", "event", "claim", "finding", "investigation"],
+      "description": "The type of the source entity."
+    },
+    "to_id": {
+      "type": "string",
+      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The target entity of this relationship."
+    },
+    "to_type": {
+      "type": "string",
+      "enum": ["person", "organisation", "event", "claim", "finding", "investigation"],
+      "description": "The type of the target entity."
+    },
+    "relationship_type": {
+      "type": "string",
+      "description": "The nature of the relationship. Use descriptive past-tense verbs: 'directed', 'employed', 'reported_to', 'participated_in', 'contradicts', 'corroborates', 'preceded', 'triggered', 'funded', 'communicated_with'."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Human-readable description of this specific relationship and its significance."
+    },
+    "period": {
+      "type": "object",
+      "properties": {
+        "start": { "$ref": "common.schema.json#/$defs/isoDate" },
+        "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+      },
+      "description": "When this relationship existed or was active."
+    },
+    "confidence_level": {
+      "$ref": "common.schema.json#/$defs/confidenceLevel",
+      "description": "Confidence that this relationship exists as described."
+    },
+    "source_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^boe:source:[0-9A-HJKMNP-TV-Z]{26}$"
+      },
+      "description": "Sources that document or support this relationship."
+    },
+    "investigation_ids": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/investigationReference" }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

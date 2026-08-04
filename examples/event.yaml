@@ -1,0 +1,36 @@
+# Example: Event entity
+# Events are dated occurrences. They are the atoms of timelines.
+# See schema/event.schema.json for the full schema.
+
+id: "boe:event:01HV8QKJZ9XTMK3P2R7N5W6D4N"
+type: "event"
+title: "Church Committee established by Senate Resolution 21"
+date: "1975-01-27"
+date_precision: "exact"
+
+description: >
+  The U.S. Senate passed Senate Resolution 21 on January 27, 1975, establishing
+  the Select Committee to Study Governmental Operations with Respect to
+  Intelligence Activities. Senator Frank Church of Idaho was named as Chairman.
+
+location: "Washington, D.C. — United States Senate"
+
+investigation_ids:
+  - "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+
+source_ids:
+  - "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
+
+person_ids:
+  - "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4L"   # Frank Church
+
+organisation_ids:
+  - "boe:organisation:01HV8QKJZ9XTMK3P2R7N5W6D4M"   # Church Committee
+
+tags:
+  - "church-committee"
+  - "senate"
+  - "1975"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

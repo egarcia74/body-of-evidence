@@ -1,0 +1,44 @@
+# Investigation Template
+# Copy this entire _template/ directory to investigations/<your-slug>/
+# Replace all placeholder values. Remove comments before publishing.
+# See schema/investigation.schema.json for the full schema.
+
+id: "boe:investigation:REPLACE_WITH_NEW_ULID"   # Generate with: python -c "import ulid; print('boe:investigation:' + str(ulid.new()))"
+type: "investigation"
+title: "Your Investigation Title"
+slug: "your-investigation-slug"                  # Must match the directory name
+status: "draft"                                  # Start as draft
+
+summary: >
+  One to three sentences describing the investigation's scope and purpose.
+  What questions does it address? What time period?
+
+scope:
+  description: >
+    Detailed description of what this investigation covers.
+  in_scope:
+    - "Topic 1"
+    - "Topic 2"
+  out_of_scope:
+    - "What this investigation explicitly does not cover"
+  time_period:
+    start: "YYYY"
+    end: "YYYY"
+
+lead_investigator:
+  identifier: "your-github-username"
+  role: "lead_investigator"
+  conflict_of_interest: "none"               # Required. Be specific if not "none".
+
+contributors: []
+
+methodology_notes: >
+  Any investigation-specific methodology notes. Leave blank if the standard
+  platform methodology applies without modification.
+
+created_at: "YYYY-MM-DDTHH:MM:SSZ"
+updated_at: "YYYY-MM-DDTHH:MM:SSZ"
+
+tags:
+  - "tag1"
+  - "tag2"

@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use Body of Evidence in your research, please cite it using this metadata."
+type: software
+title: "Body of Evidence"
+abstract: >
+  An open-source, version-controlled evidence platform for publishing
+  transparent, reproducible investigations built from primary sources.
+version: "0.1.0"
+date-released: "2026-08-04"
+license: Apache-2.0
+repository-code: "https://github.com/your-org/body-of-evidence"
+url: "https://github.com/your-org/body-of-evidence"
+keywords:
+  - evidence
+  - investigations
+  - open-source
+  - transparency
+  - reproducibility
+  - primary sources
+  - structured data

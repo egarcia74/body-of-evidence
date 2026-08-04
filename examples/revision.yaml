@@ -1,0 +1,40 @@
+# Example: Revision entity
+# Revisions document changes to published entities without overwriting history.
+# See schema/revision.schema.json for the full schema.
+
+id: "boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4O"
+type: "revision"
+entity_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+entity_type: "claim"
+revision_type: "correction"
+
+# The old entity ID (now marked superseded)
+superseded_entity_id: "boe:claim:01XXXXXXXXXXXXXXXXXXXXXXXX"
+# The new entity ID (the corrected version)
+new_entity_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+
+reason: >
+  The original claim stated the mail-opening program ran from 1953 to 1973.
+  Book II of the Church Committee report clarifies that FBI participation in
+  HTLINGUAL began in 1958, not 1953 (the 1953 date refers to the CIA program's
+  inception). Correcting the claim to accurately reflect this distinction.
+
+what_changed: >
+  Old statement: "...mail opening program designated HTLINGUAL, which ran from
+  1953 to 1973."
+  New statement: "...which operated from 1953 to 1973 (with FBI participation
+  beginning in 1958)."
+
+author:
+  identifier: "github-username"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+
+approved_by:
+  identifier: "reviewer-username"
+  role: "reviewer"
+  conflict_of_interest: "none"
+
+git_commit: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+
+created_at: "2026-08-04T00:00:00Z"

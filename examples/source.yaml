@@ -1,0 +1,48 @@
+# Example: Source entity
+# Sources are the primary or secondary documents evidence is extracted from.
+# See schema/source.schema.json for the full schema.
+
+id: "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
+type: "source"
+source_type: "primary_document"             # primary_document | testimony | data | audio_video | photograph | correspondence | publication | news_report | analysis | other
+
+title: "Final Report of the Select Committee to Study Governmental Operations with Respect to Intelligence Activities — Book II: Intelligence Activities and the Rights of Americans"
+description: >
+  The Church Committee's comprehensive report on domestic intelligence programs,
+  covering FBI surveillance of civil rights leaders, COINTELPRO, and mail
+  opening programs. Adopted by the Senate in April 1976.
+
+date: "1976-04-26"
+authors:
+  - "Senate Select Committee to Study Governmental Operations with Respect to Intelligence Activities"
+
+url: "https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
+archive_url: "https://web.archive.org/web/20240101000000*/https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
+
+quality_tier: "A"                           # A=verified_primary | B=probable_primary | C=credible_secondary | D=unverified | E=disputed
+quality_tier_rationale: >
+  Official U.S. Senate publication, publicly available on the Senate Intelligence
+  Committee's official website. Authenticity is not in question.
+
+provenance:
+  origin: "U.S. Senate Select Committee to Study Governmental Operations with Respect to Intelligence Activities"
+  obtained_via: "Direct download from senate.gov official publication archive"
+  obtained_date: "2026-08-01"
+  authentication_notes: >
+    Downloaded directly from the U.S. Senate Intelligence Committee's official
+    website (intelligence.senate.gov). MD5 checksum recorded in investigation notes.
+
+pages: 382
+classification_at_time: "UNCLASSIFIED"
+current_classification: "UNCLASSIFIED"
+
+language: "en"
+
+tags:
+  - "church-committee"
+  - "senate"
+  - "intelligence"
+  - "1976"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

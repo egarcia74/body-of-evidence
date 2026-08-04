@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/common.schema.json",
+  "title": "Body of Evidence — Common Definitions",
+  "description": "Shared definitions reused across all Body of Evidence entity schemas.",
+  "version": "0.1.0",
+  "$defs": {
+    "boeId": {
+      "type": "string",
+      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "A stable, immutable entity identifier in the format boe:<type>:<ulid>. Example: boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F",
+      "examples": [
+        "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F",
+        "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G",
+        "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+      ]
+    },
+    "isoDate": {
+      "type": "string",
+      "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
+      "description": "A date in ISO 8601 format: YYYY, YYYY-MM, or YYYY-MM-DD.",
+      "examples": ["2023-11-22", "2023-11", "2023"]
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "A datetime in ISO 8601 format with timezone: YYYY-MM-DDTHH:MM:SSZ"
+    },
+    "confidenceLevel": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Evidence confidence on a 1–5 scale: 1=speculative, 2=contested, 3=plausible, 4=probable, 5=confirmed"
+    },
+    "confidenceLabel": {
+      "type": "string",
+      "enum": ["speculative", "contested", "plausible", "probable", "confirmed"],
+      "description": "Human-readable label corresponding to the confidence level."
+    },
+    "lifecycleStatus": {
+      "type": "string",
+      "enum": ["draft", "review", "published", "revised", "superseded", "archived"],
+      "description": "The lifecycle state of an entity."
+    },
+    "investigationReference": {
+      "type": "string",
+      "pattern": "^boe:investigation:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "A reference to an Investigation entity."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "uniqueItems": true,
+      "description": "Free-form tags for categorisation and search."
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^boe:revision:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "A reference to a Revision entity."
+    },
+    "contributor": {
+      "type": "object",
+      "required": ["identifier"],
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "description": "GitHub username or pseudonym of the contributor."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["lead_investigator", "contributor", "reviewer", "challenger"],
+          "description": "The contributor's role in relation to this entity."
+        },
+        "conflict_of_interest": {
+          "type": "string",
+          "description": "Disclosed conflict of interest, or 'none'. Required field.",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["origin", "obtained_via"],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "description": "Where the source document originates (e.g., 'National Archives, RG 272', 'FOIA response from FBI')."
+        },
+        "obtained_via": {
+          "type": "string",
+          "description": "How the source was obtained (e.g., 'Direct download from archives.gov', 'FOIA request #2023-XYZ')."
+        },
+        "obtained_date": {
+          "$ref": "#/$defs/isoDate",
+          "description": "When the source was obtained."
+        },
+        "authentication_notes": {
+          "type": "string",
+          "description": "Notes on how authenticity was verified, or why it cannot be fully verified."
+        },
+        "chain_of_custody": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ordered list of custodians through whose hands this document has passed."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

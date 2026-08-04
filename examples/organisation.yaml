@@ -1,0 +1,28 @@
+# Example: Organisation entity
+# See schema/organisation.schema.json for the full schema.
+
+id: "boe:organisation:01HV8QKJZ9XTMK3P2R7N5W6D4M"
+type: "organisation"
+name: "Senate Select Committee to Study Governmental Operations with Respect to Intelligence Activities"
+abbreviation: "Church Committee"
+organisation_type: "legislative_body"
+jurisdiction: "United States"
+
+active_period:
+  start: "1975-01-27"
+  end: "1976-05-19"
+
+relevance: >
+  The Church Committee was the primary investigative body whose reports form
+  the evidentiary basis for the Church Committee investigation in this platform.
+
+investigation_ids:
+  - "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+
+tags:
+  - "senate"
+  - "intelligence-oversight"
+  - "1975"
+
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

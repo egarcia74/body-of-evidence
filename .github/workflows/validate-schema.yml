@@ -1,0 +1,54 @@
+name: Validate Schema
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "investigations/**"
+      - "schema/**"
+      - "examples/**"
+      - "scripts/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "investigations/**"
+      - "schema/**"
+      - "examples/**"
+      - "scripts/**"
+
+jobs:
+  validate:
+    name: Run validation suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run schema validation
+        run: python scripts/validate.py --check schema --verbose
+
+      - name: Run ID validation
+        run: python scripts/validate.py --check ids --verbose
+
+      - name: Run reference validation
+        run: python scripts/validate.py --check references --verbose
+
+      - name: Run orphan detection
+        run: python scripts/validate.py --check orphans --verbose
+
+      - name: Run provenance validation
+        run: python scripts/validate.py --check provenance --verbose
+
+      - name: Run full validation suite
+        run: python scripts/validate.py
