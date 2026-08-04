@@ -31,7 +31,7 @@
 
 ## How to Contribute
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) and use the [Evidence Submission](.github/ISSUE_TEMPLATE/evidence_submission.md) issue template.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) and use the [Evidence Submission](../../.github/ISSUE_TEMPLATE/evidence_submission.md) issue template.
 
 ---
 

@@ -5,11 +5,14 @@
   "description": "A typed, directional connection between any two entities. Relationships allow the evidence model to express who knew whom, which organisations were connected, which events triggered other events, and similar structural connections.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "from_id", "from_type", "to_id", "to_type", "relationship_type", "created_at"],
+  "required": ["id", "version_id", "type", "from_id", "from_type", "to_id", "to_type", "relationship_type", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:relationship:<ulid>"
+      "description": "Stable entity identifier in format boe:relationship:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "relationship",
@@ -52,9 +55,14 @@
       },
       "description": "When this relationship existed or was active."
     },
+    "claim_id": {
+      "type": "string",
+      "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "For contestable relationships (participation, responsibility, undisclosed connections), the Claim entity that asserts this relationship and carries its evidence and assessment. Uncontested public-record relationships (e.g., a senator chaired a committee) may omit this."
+    },
     "confidence_level": {
       "$ref": "common.schema.json#/$defs/confidenceLevel",
-      "description": "Confidence that this relationship exists as described."
+      "description": "Confidence that this relationship exists as described. For contestable relationships this must mirror the assessment of the backing claim referenced in claim_id."
     },
     "source_ids": {
       "type": "array",

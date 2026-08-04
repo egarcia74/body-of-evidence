@@ -3,6 +3,7 @@
 # See schema/event.schema.json for the full schema.
 
 id: "boe:event:01HV8QKJZ9XTMK3P2R7N5W6D4N"
+version_id: "01HVV000000000000000000009"          # Immutable per-version ID; the entity id above is stable across versions
 type: "event"
 title: "Church Committee established by Senate Resolution 21"
 date: "1975-01-27"
@@ -22,7 +23,7 @@ source_ids:
   - "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
 
 person_ids:
-  - "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4L"   # Frank Church
+  - "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4X"   # Frank Church
 
 organisation_ids:
   - "boe:organisation:01HV8QKJZ9XTMK3P2R7N5W6D4M"   # Church Committee

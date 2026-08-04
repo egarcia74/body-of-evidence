@@ -2,16 +2,18 @@
 # Revisions document changes to published entities without overwriting history.
 # See schema/revision.schema.json for the full schema.
 
-id: "boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4O"
+id: "boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4W"
+version_id: "01HVV000000000000000000012"          # Immutable per-version ID; the entity id above is stable across versions
 type: "revision"
 entity_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
 entity_type: "claim"
 revision_type: "correction"
 
-# The old entity ID (now marked superseded)
-superseded_entity_id: "boe:claim:01XXXXXXXXXXXXXXXXXXXXXXXX"
-# The new entity ID (the corrected version)
-new_entity_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+# The entity id is STABLE across versions; only version_id changes.
+# The old version file is never modified. Which version is current is
+# recorded in the package manifest, not here.
+old_version_id: "01HVV000000000000000000090"
+new_version_id: "01HVV000000000000000000002"
 
 reason: >
   The original claim stated the mail-opening program ran from 1953 to 1973.

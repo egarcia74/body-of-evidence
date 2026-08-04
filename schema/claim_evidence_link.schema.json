@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/claim_evidence_link.schema.json",
+  "title": "ClaimEvidenceLink",
+  "description": "A versioned, directional edge connecting one Evidence entity to one Claim entity. Polarity (supports/contradicts/etc.) lives HERE, not on the evidence — because the same evidence may support claim A, contradict claim B, and merely contextualise claim C. This is the only place claim-evidence connections are stored; backlinks on claims and evidence are derived by tooling.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["id", "version_id", "type", "claim_id", "evidence_id", "polarity", "created_at"],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/boeId",
+      "description": "Stable entity identifier in format boe:claim_evidence_link:<ulid>."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
+    },
+    "type": {
+      "const": "claim_evidence_link",
+      "description": "Entity type discriminator. Must be 'claim_evidence_link'."
+    },
+    "claim_id": {
+      "type": "string",
+      "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The claim this link connects to."
+    },
+    "evidence_id": {
+      "type": "string",
+      "pattern": "^boe:evidence:[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "The evidence this link connects to."
+    },
+    "polarity": {
+      "type": "string",
+      "enum": ["supports", "contradicts", "contextualises", "corroborates", "impeaches"],
+      "description": "How this evidence bears on this specific claim. 'corroborates' means it independently confirms other evidence for the claim; 'impeaches' means it undermines the credibility of other evidence or a source relied on by the claim."
+    },
+    "strength": {
+      "type": "string",
+      "enum": ["direct", "strong_circumstantial", "circumstantial", "weak"],
+      "description": "How directly this evidence bears on the claim, for this link specifically."
+    },
+    "reasoning": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "Why this evidence bears on this claim in the stated way. Required in practice for contradicts/impeaches links; enforced by review, not schema."
+    },
+    "contributor": {
+      "$ref": "common.schema.json#/$defs/contributor"
+    },
+    "status": {
+      "$ref": "common.schema.json#/$defs/lifecycleStatus"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/your-org/body-of-evidence/schema/package.schema.json",
+  "title": "Package Manifest",
+  "description": "The machine-readable manifest for an investigation package (stored as package.yaml in the investigation root). The manifest is the single source of truth for WHICH entity versions are current. An entity version is superseded by no longer being listed here — old version files are never edited. Consumers (renderers, MCP servers, agents) must resolve current state from this manifest, never from filenames or Git timestamps.",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["manifest_version", "investigation_id", "slug", "release_version", "schema_version", "methodology_version", "entities"],
+  "properties": {
+    "manifest_version": {
+      "const": "1",
+      "description": "Manifest format version."
+    },
+    "investigation_id": {
+      "$ref": "common.schema.json#/$defs/investigationReference",
+      "description": "The Investigation entity this package contains."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Package slug. Must match the directory name under investigations/."
+    },
+    "release_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "SemVer release version of this investigation package. Independent of the platform/schema version."
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "The Body of Evidence schema version this package's entities conform to."
+    },
+    "methodology_version": {
+      "type": "string",
+      "description": "The METHODOLOGY.md version under which this package's assessments were made."
+    },
+    "entities": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Every entity version that is CURRENT in this release. Entities with versions not listed here are superseded or draft. One entry per entity id.",
+      "items": {
+        "type": "object",
+        "required": ["id", "version_id", "path"],
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/boeId"
+          },
+          "version_id": {
+            "$ref": "common.schema.json#/$defs/versionId"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path to the entity file, relative to the package root."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "Other investigation packages this package references entities from.",
+      "items": {
+        "type": "object",
+        "required": ["slug", "release_version"],
+        "properties": {
+          "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "release_version": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "maintainers": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/contributor" },
+      "description": "Who can approve releases of this package."
+    },
+    "released_at": {
+      "$ref": "common.schema.json#/$defs/isoDateTime"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Release notes for this version of the package."
+    }
+  },
+  "additionalProperties": false
+}

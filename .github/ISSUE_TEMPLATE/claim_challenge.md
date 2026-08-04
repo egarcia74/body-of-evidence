@@ -37,7 +37,7 @@ Investigation:
 - [ ] Lower the confidence level (from ___ to ___)
 - [ ] Add contradictory evidence to the record
 - [ ] Add a caveat to a finding
-- [ ] Mark the entity as `contested`
+- [ ] Record the assessment as `conclusion: mixed` and/or `dispute_status: disputed`
 - [ ] Other: 
 
 ## Your conflict of interest

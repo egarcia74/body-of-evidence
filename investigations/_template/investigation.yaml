@@ -3,7 +3,8 @@
 # Replace all placeholder values. Remove comments before publishing.
 # See schema/investigation.schema.json for the full schema.
 
-id: "boe:investigation:REPLACE_WITH_NEW_ULID"   # Generate with: python -c "import ulid; print('boe:investigation:' + str(ulid.new()))"
+id: "boe:investigation:REPLACE_WITH_NEW_ULID"   # Generate with: python3 -c "from ulid import ULID; print('boe:investigation:' + str(ULID()))"
+version_id: "REPLACE_WITH_NEW_ULID"              # Generate with: python3 -c "from ulid import ULID; print(ULID())" — new version_id per version; id above never changes
 type: "investigation"
 title: "Your Investigation Title"
 slug: "your-investigation-slug"                  # Must match the directory name

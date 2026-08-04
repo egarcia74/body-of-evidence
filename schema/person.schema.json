@@ -2,14 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/your-org/body-of-evidence/schema/person.schema.json",
   "title": "Person",
-  "description": "An individual who is relevant to one or more investigations. Recording a person is a factual record of their relevance — not an accusation or finding about their conduct.",
+  "description": "An individual who is relevant to one or more investigations. Person records hold IDENTITY and DISAMBIGUATION data only (names, dates, uncontested public roles). Any contestable assertion about a person — employment, participation, knowledge, responsibility — must be expressed as a Claim with evidence and an assessment, never stored as a profile attribute. Recording a person is a factual record of relevance, not an accusation.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "display_name", "created_at"],
+  "required": ["id", "version_id", "type", "display_name", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:person:<ulid>"
+      "description": "Stable entity identifier in format boe:person:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "person",

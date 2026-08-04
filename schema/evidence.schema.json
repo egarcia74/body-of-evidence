@@ -2,14 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/your-org/body-of-evidence/schema/evidence.schema.json",
   "title": "Evidence",
-  "description": "A specific piece of content extracted from a source that is directly relevant to a claim. Evidence is always tied to a specific source and a specific location within that source.",
-  "version": "0.1.0",
+  "description": "A specific piece of content extracted from a source. Evidence is always tied to a specific source and a specific location within that source. Evidence carries NO polarity — the same extraction may support one claim and contradict another. How evidence relates to a claim (supports, contradicts, contextualises) is expressed on the ClaimEvidenceLink entity connecting them. Evidence not referenced by at least one ClaimEvidenceLink is orphaned and fails validation.",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "type", "source_id", "claim_ids", "description", "location", "created_at"],
+  "required": ["id", "version_id", "type", "source_id", "description", "location", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:evidence:<ulid>"
+      "description": "Stable entity identifier in format boe:evidence:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "evidence",
@@ -20,20 +23,11 @@
       "pattern": "^boe:source:[0-9A-HJKMNP-TV-Z]{26}$",
       "description": "The source this evidence is extracted from. Must reference an existing Source entity."
     },
-    "claim_ids": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "string",
-        "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$"
-      },
-      "description": "The claim(s) this evidence bears on. Must have at least one claim. Evidence must not be orphaned."
-    },
     "description": {
       "type": "string",
       "minLength": 10,
       "maxLength": 4096,
-      "description": "What this evidence is and why it is relevant to the associated claims."
+      "description": "What this evidence is. Descriptive only — how it bears on any claim belongs on the ClaimEvidenceLink."
     },
     "quote": {
       "type": "string",
@@ -43,23 +37,12 @@
     "location": {
       "type": "string",
       "minLength": 1,
-      "description": "Specific location within the source: page number, paragraph, timestamp, section, or line range."
+      "description": "Specific location within the source: page number, paragraph, timestamp, section, or line range. Structured selectors (W3C Annotation-style) planned for a future schema version."
     },
     "interpretation": {
       "type": "string",
       "maxLength": 2048,
       "description": "Optional: what the investigator takes this evidence to mean, kept separate from the raw extraction."
-    },
-    "evidence_type": {
-      "type": "string",
-      "enum": [
-        "supporting",
-        "contradictory",
-        "contextual",
-        "corroborating",
-        "impeaching"
-      ],
-      "description": "How this evidence relates to the associated claim(s)."
     },
     "reliability_notes": {
       "type": "string",
@@ -76,10 +59,6 @@
     },
     "updated_at": {
       "$ref": "common.schema.json#/$defs/isoDateTime"
-    },
-    "revision_history": {
-      "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/revision_ref" }
     }
   },
   "additionalProperties": false

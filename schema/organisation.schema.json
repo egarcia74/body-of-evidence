@@ -5,11 +5,14 @@
   "description": "An entity (government body, company, institution, committee) that is relevant to one or more investigations.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "name", "created_at"],
+  "required": ["id", "version_id", "type", "name", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:organisation:<ulid>"
+      "description": "Stable entity identifier in format boe:organisation:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "organisation",

@@ -1,0 +1,30 @@
+# Example: ClaimEvidenceLink entity
+# The ONLY place claim-evidence connections are stored. Polarity lives here,
+# not on the evidence — the same evidence can support one claim and
+# contradict another. Backlinks on claims/evidence are derived by tooling.
+# See schema/claim_evidence_link.schema.json for the full schema.
+
+id: "boe:claim_evidence_link:01HV8QKJZ9XTMK3P2R7N5W6D4S"
+version_id: "01HVV000000000000000000014"          # Immutable per-version ID; the entity id above is stable across versions
+type: "claim_evidence_link"
+
+claim_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+evidence_id: "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
+
+polarity: "supports"                        # supports | contradicts | contextualises | corroborates | impeaches
+strength: "direct"                          # direct | strong_circumstantial | circumstantial | weak
+
+reasoning: >
+  The quoted passage from Book II directly states that the FBI received opened
+  mail from the CIA's HTLINGUAL program between 1958 and 1973, which directly
+  supports the claim's assertion about the program's operation and FBI
+  participation. This is direct documentary evidence, not inference.
+
+contributor:
+  identifier: "github-username"
+  role: "contributor"
+  conflict_of_interest: "none"
+
+status: "published"
+created_at: "2026-08-04T00:00:00Z"
+updated_at: "2026-08-04T00:00:00Z"

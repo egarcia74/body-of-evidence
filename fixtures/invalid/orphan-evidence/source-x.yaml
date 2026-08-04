@@ -1,0 +1,12 @@
+# INVALID FIXTURE — support file for orphan evidence
+id: "boe:source:01JF0000000000000000000301"
+version_id: "01JFV000000000000000000301"
+type: "source"
+source_type: "primary_document"
+title: "Fixture source for orphan evidence"
+quality_tier: "C"
+quality_tier_rationale: "Fixture."
+provenance:
+  origin: "Fixture origin"
+  obtained_via: "Fixture request"
+created_at: "2026-08-04T00:00:00Z"

@@ -3,6 +3,7 @@
 # See schema/source.schema.json for the full schema.
 
 id: "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
+version_id: "01HVV000000000000000000003"          # Immutable per-version ID; the entity id above is stable across versions
 type: "source"
 source_type: "primary_document"             # primary_document | testimony | data | audio_video | photograph | correspondence | publication | news_report | analysis | other
 
@@ -18,6 +19,19 @@ authors:
 
 url: "https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
 archive_url: "https://web.archive.org/web/20240101000000*/https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
+
+# Exact byte fixity. A URL locates a source; it does not identify content.
+# The digest is what makes "the source said X" checkable against silent
+# content replacement. Example digest shown; compute from the actual bytes.
+artifacts:
+  - sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    byte_length: 24837201
+    media_type: "application/pdf"
+    retrieved_at: "2026-08-01T00:00:00Z"
+    retrieved_from: "https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
+    storage_location: "https://web.archive.org/web/20240101000000/https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
+    rights: "U.S. federal government work; public domain in the United States."
+    notes: "Digest computed at retrieval; matches archive copy."
 
 quality_tier: "A"                           # A=verified_primary | B=probable_primary | C=credible_secondary | D=unverified | E=disputed
 quality_tier_rationale: >

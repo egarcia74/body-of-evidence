@@ -1,0 +1,8 @@
+# INVALID FIXTURE — references entities that do not exist
+id: "boe:claim_evidence_link:01JF0000000000000000000201"
+version_id: "01JFV000000000000000000201"
+type: "claim_evidence_link"
+claim_id: "boe:claim:01JF0000000000000000000999"
+evidence_id: "boe:evidence:01JF0000000000000000000998"
+polarity: "supports"
+created_at: "2026-08-04T00:00:00Z"

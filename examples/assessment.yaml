@@ -1,14 +1,21 @@
 # Example: Assessment entity
-# Assessments evaluate claims and must include a written rationale.
+# An assessment records THREE separate dimensions:
+#   conclusion       — which way the evidence points
+#   confidence       — how strong the evidence is
+#   dispute_status   — whether a formal challenge is active
+# These are deliberately never conflated.
 # See schema/assessment.schema.json for the full schema.
 
 id: "boe:assessment:01HV8QKJZ9XTMK3P2R7N5W6D4J"
+version_id: "01HVV000000000000000000005"          # Immutable per-version ID; the entity id above is stable across versions
 type: "assessment"
 claim_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
 status: "published"
 
-confidence_level: 5                         # 1=speculative | 2=contested | 3=plausible | 4=probable | 5=confirmed
-confidence_label: "confirmed"
+conclusion: "supported"                     # supported | contradicted | mixed | insufficient | not_assessed
+confidence_level: 5                         # 1=speculative | 2=weak | 3=moderate | 4=strong | 5=near_certain
+confidence_label: "near_certain"            # Must pair with the numeric level
+dispute_status: "undisputed"                # undisputed | disputed | unresolved
 
 # Rationale is mandatory and must be substantive
 rationale: >
@@ -23,11 +30,11 @@ rationale: >
   in the claim refers to the CIA program overall; FBI participation beginning in
   1958 is accurately reflected in the evidence.
 
-evidence_considered:
-  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
-  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4I"
-
-contradictory_evidence: []                  # No contradictory evidence identified
+# The ClaimEvidenceLink entities considered. Links carry polarity, so this
+# list captures supporting AND contradicting evidence — omitting known
+# contradicting links makes an assessment methodologically invalid.
+link_ids:
+  - "boe:claim_evidence_link:01HV8QKJZ9XTMK3P2R7N5W6D4S"
 
 confidence_factors:
   evidence_strength: "strong"               # Direct quotation from a primary source document
@@ -40,6 +47,8 @@ confidence_factors:
 what_would_change_assessment: >
   Declassification of contradictory records showing the Committee's report
   was inaccurate would lower confidence. No such records are known to exist.
+
+methodology_version: "0.2.0"
 
 assessor:
   identifier: "github-username"

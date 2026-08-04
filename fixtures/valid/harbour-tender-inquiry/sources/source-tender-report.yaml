@@ -1,0 +1,21 @@
+# FIXTURE — fictional source.
+id: "boe:source:01JF0000000000000000000002"
+version_id: "01JFV000000000000000000002"
+type: "source"
+source_type: "primary_document"
+title: "Harbourville Council Tender Evaluation Report (fictional)"
+date: "2020-06-15"
+quality_tier: "A"
+quality_tier_rationale: "Fictional official council document with verified digest."
+provenance:
+  origin: "Harbourville City Council records office (fictional)"
+  obtained_via: "Council public records request HB-2020-441 (fictional)"
+  obtained_date: "2026-08-01"
+  authentication_notes: "Fictional fixture; digest recorded below."
+artifacts:
+  - sha256: "0000000000000000000000000000000000000000000000000000000000000001"
+    byte_length: 1024
+    media_type: "application/pdf"
+    retrieved_at: "2026-08-01T00:00:00Z"
+    rights: "Fictional document; fixture use only."
+created_at: "2026-08-04T00:00:00Z"

@@ -2,7 +2,8 @@
 # Recording a person is a factual record of relevance, not an accusation.
 # See schema/person.schema.json for the full schema.
 
-id: "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4L"
+id: "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4X"
+version_id: "01HVV000000000000000000007"          # Immutable per-version ID; the entity id above is stable across versions
 type: "person"
 display_name: "Frank Church"
 full_name: "Frank Forrester Church III"

@@ -2,14 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/your-org/body-of-evidence/schema/finding.schema.json",
   "title": "Finding",
-  "description": "A high-level conclusion synthesised from multiple claims and evidence items. Findings represent the investigation's conclusions. They are more interpretive than claims and must reference the claims they synthesise.",
+  "description": "A high-level conclusion synthesised from ASSESSED claims. Findings must not introduce facts that are not present in the referenced claims — a finding is a synthesis, not a new assertion path. A finding's confidence cannot exceed the confidence of the weakest claim assessment it depends on for a load-bearing element. Validation of this invariant is planned; until then it is enforced by review.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "investigation_id", "statement", "claim_ids", "confidence_level", "confidence_label", "rationale", "status", "created_at"],
+  "required": ["id", "version_id", "type", "investigation_id", "statement", "claim_ids", "confidence_level", "confidence_label", "rationale", "status", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:finding:<ulid>"
+      "description": "Stable entity identifier in format boe:finding:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "finding",
@@ -68,10 +71,6 @@
     },
     "updated_at": {
       "$ref": "common.schema.json#/$defs/isoDateTime"
-    },
-    "revision_history": {
-      "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/revision_ref" }
     }
   },
   "additionalProperties": false

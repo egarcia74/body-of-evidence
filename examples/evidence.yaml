@@ -1,16 +1,17 @@
 # Example: Evidence entity
-# Evidence is a specific extraction from a source, tied to one or more claims.
+# Evidence is a specific extraction from a source. Polarity lives on links.
 # See schema/evidence.schema.json for the full schema.
 
 id: "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
+version_id: "01HVV000000000000000000004"          # Immutable per-version ID; the entity id above is stable across versions
 type: "evidence"
 source_id: "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
 
-# Evidence must not be orphaned — must reference at least one claim
-claim_ids:
-  - "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
-
-evidence_type: "supporting"                 # supporting | contradictory | contextual | corroborating | impeaching
+# NOTE: evidence carries NO polarity and no claim references. How this
+# evidence bears on a claim (supports/contradicts/etc.) lives on the
+# ClaimEvidenceLink entity connecting them — because the same extraction
+# can support one claim and contradict another. Evidence not referenced
+# by at least one link is orphaned and fails validation.
 
 description: >
   The Church Committee Book II states that the FBI participated in the CIA's

@@ -17,7 +17,7 @@ Every source must be either:
 - Available via an identifiable public records request, court filing, or other formal channel
 - Documented with enough detail that another investigator can obtain the same document
 
-Sources that are not obtainable by a third party cannot support findings above confidence level 3 (`plausible`).
+Sources that are not obtainable by a third party cannot support findings above confidence level 3 (`moderate`).
 
 ### 2. Extraction Transparency
 
@@ -48,7 +48,7 @@ All structured data is version-controlled in Git. The Git history is part of the
 | Reproducibility Status | Effect on Confidence |
 |---|---|
 | Fully reproducible — sources publicly available, extraction documented, rationale complete | No penalty |
-| Partially reproducible — some sources not publicly obtainable | Maximum confidence level: 3 (`plausible`) |
+| Partially reproducible — some sources not publicly obtainable | Maximum confidence level: 3 (`moderate`) |
 | Not reproducible — sources cannot be independently obtained or identified | Assessment is recorded but flagged; maximum confidence: 1 (`speculative`) |
 
 ---

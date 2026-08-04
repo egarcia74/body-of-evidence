@@ -3,10 +3,15 @@
 # See schema/claim.schema.json for the full schema.
 
 id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+version_id: "01HVV000000000000000000002"          # Immutable per-version ID; the entity id above is stable across versions
 type: "claim"
 investigation_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
 status: "published"
-claim_status: "supported"                   # unassessed | supported | partially_supported | contested | refuted | unresolvable
+
+# NOTE: connections to evidence are NOT stored here. They live in
+# ClaimEvidenceLink entities (see claim_evidence_link.yaml), which carry
+# polarity. The evidential verdict lives in Assessment entities that
+# reference this claim. Backlinks are derived by tooling.
 
 statement: >
   The Church Committee's Book II (1976) documented that the FBI opened the mail of
@@ -18,13 +23,6 @@ context: >
   HTLINGUAL was a CIA mail-opening program that targeted correspondence between
   U.S. citizens and the Soviet Union. The Church Committee reviewed the program
   and reported its findings in Book III as well as Book II.
-
-evidence_ids:
-  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
-  - "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4I"
-
-assessment_ids:
-  - "boe:assessment:01HV8QKJZ9XTMK3P2R7N5W6D4J"
 
 contributor:
   identifier: "github-username"

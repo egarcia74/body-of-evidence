@@ -1,17 +1,19 @@
 # Body of Evidence — Validation Script Dependencies
 # Install with: pip install -r scripts/requirements.txt
+#
+# NOTE: versions are pinned exactly for CI reproducibility. Update
+# deliberately, not incidentally.
 
 # YAML parsing
-pyyaml>=6.0.1
+pyyaml==6.0.2
 
-# JSON Schema validation (supports draft 2020-12)
-jsonschema>=4.21.0
+# JSON Schema validation (draft 2020-12) + local $ref registry
+jsonschema==4.23.0
+referencing==0.35.1
 
-# ULID support (for ID format validation)
-python-ulid>=2.2.0
+# ULID generation (used by contributors creating new entities)
+# Usage: python3 -c "from ulid import ULID; print(ULID())"
+python-ulid==2.7.0
 
-# HTTP requests (for dead link checking)
-requests>=2.31.0
-
-# Rich terminal output
-rich>=13.7.0
+# Test runner (used by CI)
+pytest==8.3.4

@@ -31,7 +31,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 ### D-002: ULID-based entity IDs with typed namespace
 
 **Date:** 2026-08-04
-**Status:** Accepted
+**Status:** Modified by D-009 (2026-08-05) — stable `id` retained, immutable `version_id` added per version
 
 **Context:** Every entity needs a stable, globally unique identifier. IDs must be immutable once assigned and should convey entity type.
 
@@ -51,7 +51,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 ### D-003: 5-level confidence scale
 
 **Date:** 2026-08-04
-**Status:** Accepted
+**Status:** Superseded by D-010 (2026-08-05) — conflated confidence with dispute state
 
 **Context:** Evidence quality varies. Assessments need to communicate how well-supported a claim is, in a way that is meaningful to both human readers and AI agents.
 
@@ -71,7 +71,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 ### D-004: Immutable published entities / revision-based history
 
 **Date:** 2026-08-04
-**Status:** Accepted
+**Status:** Modified by D-009 (2026-08-05) — the original mechanism mutated old entities' status, contradicting its own principle
 
 **Context:** Investigations evolve as new evidence emerges. But silent rewrites undermine trust. The platform needs to support updates while preserving history.
 
@@ -89,7 +89,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 ### D-005: Apache 2.0 license
 
 **Date:** 2026-08-04
-**Status:** Accepted
+**Status:** Narrowed by D-013 (2026-08-05) — Apache 2.0 covers code/schemas/original docs only, not third-party source material
 
 **Context:** The platform should be open-source and usable by others who want to build on it or run their own instances.
 
@@ -153,3 +153,79 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Decision:** Python 3.9+.
 
 **Rationale:** Python is the most accessible language for researchers, data analysts, and investigators who may contribute. `jsonschema`, `pyyaml`, and `ulid-py` are well-maintained. The lower contribution barrier outweighs any performance advantage of other options.
+
+---
+
+## Decisions from the 2026-08-05 Independent Architecture Review
+
+An independent principal-architect review of commit `f758968` (preserved at `docs/reviews/`) identified material defects in the v0.1 data model. The following decisions respond to it. The guiding principle for what to fix now versus later: **schema semantics are nearly free to change before the first real dataset exists and brutally expensive after.** Infrastructure and governance operationalisation have no such closing window and are deferred.
+
+### D-009: Stable entity IDs + immutable version IDs + manifest-based supersession
+
+**Date:** 2026-08-05
+**Status:** Accepted (modifies D-002, D-004)
+
+**Context:** v0.1 used one ID per entity and instructed contributors to mark old entities `superseded` — a mutation of the historical record, directly contradicting the platform's own immutability principle. The review called this the model's central incoherence.
+
+**Decision:** Every entity carries a stable `id` (`boe:<type>:<ulid>`, constant across versions) and an immutable `version_id` (ULID, unique per version). Published version files are never modified in any way. Which version is current is recorded solely in the investigation's package manifest (`package.yaml`, D-012). The `superseded` lifecycle status is removed — supersession is the absence of a version from the manifest. `Revision` entities connect `old_version_id` to `new_version_id` and record why.
+
+**Rationale:** Immutability that depends on contributors not editing files is policy; immutability where the current-state pointer lives outside the files is architecture. This also gives consumers (renderers, MCP, agents) a single authoritative answer to "what is current" that does not depend on filenames or Git timestamps.
+
+### D-010: Assessment = conclusion + confidence + dispute status (separate dimensions)
+
+**Date:** 2026-08-05
+**Status:** Accepted (supersedes D-003)
+
+**Context:** The v0.1 scale used `contested` as level 2 — but "evidence on both sides" is not a *quantity* of confidence, it is a *direction* of evidence. And an active challenge is neither.
+
+**Decision:** Assessments record `conclusion` (supported/contradicted/mixed/insufficient/not_assessed), `confidence_level` 1–5 (`speculative`, `weak`, `moderate`, `strong`, `near_certain`), and `dispute_status` (undisputed/disputed/unresolved) as independent fields. The scale is documented as ordinal, not probabilistic. `claim_status` was removed from Claim (derived from the current assessment, not stored).
+
+**Rationale:** The review proposed a five-dimension model (adding completeness and per-source quality dimensions); we adopted three, keeping completeness and quality inside the existing `confidence_factors` structure. Full decomposition can be revisited after pilot investigations show whether contributors can use it consistently. Overweighting assessment structure before real usage data exists is its own failure mode.
+
+### D-011: Polarity lives on ClaimEvidenceLink; references are single-direction
+
+**Date:** 2026-08-05
+**Status:** Accepted
+
+**Context:** v0.1 stored `evidence_type: supporting` on Evidence — semantically wrong, since the same extraction can support claim A and contradict claim B. v0.1 also stored claim→evidence and evidence→claim arrays in both directions, a guaranteed divergence bug.
+
+**Decision:** A new `ClaimEvidenceLink` entity is the only place claim–evidence connections exist. It carries `polarity` (supports/contradicts/contextualises/corroborates/impeaches), `strength`, and `reasoning`. Evidence carries no claim references and no polarity. Claims carry no evidence references. Backlinks are derived by tooling. Orphan detection now means "evidence referenced by no link."
+
+**Rationale:** Edges with properties belong on edge entities. One direction of storage means one source of truth.
+
+### D-012: Package manifests per investigation
+
+**Date:** 2026-08-05
+**Status:** Accepted (extends D-006)
+
+**Context:** "Self-contained investigation packages" was an aspiration without a contract. Nothing declared which entity versions were current, what schema version a package conformed to, or what it depended on.
+
+**Decision:** Every investigation carries a `package.yaml` (validated against `schema/package.schema.json`) declaring: investigation ID, package release version (independent SemVer), schema version, methodology version, the current `version_id` for every entity, cross-package dependencies, and maintainers. Validators check manifest entries against the files they reference.
+
+**Rationale:** This is the minimum manifest that makes supersession (D-009) mechanical, release-aware queries possible, and future independently-hosted packages feasible. Release digests and signatures are deferred to the signed-release milestone — they harden the mechanism but do not change its shape.
+
+### D-013: Source fixity via artifact digests; licence scope narrowed
+
+**Date:** 2026-08-05
+**Status:** Accepted (narrows D-005)
+
+**Context:** A URL locates a source but does not identify its content; URLs rot and contents change silently. And Apache 2.0 cannot grant redistribution rights over third-party documents.
+
+**Decision:** Source entities gain an `artifacts` array: SHA-256 digest, byte length, media type, retrieval time/URL, storage location, and per-artifact `rights` metadata. Provenance validation requires tier A/B sources to carry at least one digest. The repository licence is documented as covering original software, schemas, and documentation only; a full SPDX/REUSE per-artifact policy is a pre-1.0 requirement. Large artifacts are stored outside Git history (storage location recorded, bytes preserved in archives).
+
+**Rationale:** The digest is what makes "the source said X" checkable years later. The full SourceWork/SourceArtifact/EvidenceFragment three-entity split recommended by the review is deferred — the artifacts array captures the fixity guarantee without a third entity layer; structured selectors (W3C Annotation style) are noted in the Evidence schema as a planned evolution.
+
+### D-014: Validation must be non-vacuous and self-proving
+
+**Date:** 2026-08-05
+**Status:** Accepted
+
+**Context:** The v0.1 validator exited green with zero investigations. For a platform whose pitch is "trust our validation," a green badge that proves nothing is worse than no badge — it is false assurance. This was the review's most serious engineering finding.
+
+**Decision:** `validate.py` fails when nothing was validated (explicit `--allow-empty` required, used in CI only alongside the self-test during pre-content pre-alpha). `fixtures/valid/` contains a complete fictional package that must pass every check; `fixtures/invalid/` contains packages each violating exactly one invariant that must be rejected. `validate.py --self-test` and the pytest suite enforce both directions in CI. Additional fixes from the same review: `.yml` files can no longer bypass semantic checks (shared file discovery), duplicate YAML keys are rejected, all schema errors are reported (not just the first), `$refs` resolve from a local registry, ULID validation enforces charset and timestamp constraints (which immediately caught three invalid IDs in our own v0.1 examples), reference validation checks endpoint types, and dependencies are pinned.
+
+**Rationale:** A validator's claims should be tested the same way the platform tests evidence: against cases designed to falsify them.
+
+### Deferred review recommendations (tracked, not lost)
+
+Deliberately not done now, in rough priority order for later milestones: deterministic canonical JSON release representation (RFC 8785) with YAML demoted to authoring format; signed release manifests and two-person release rules; SQLite/FTS derived query index for MCP; structured evidence selectors; SourceWork/SourceArtifact/EvidenceFragment split; publication editions; cross-package identity resolution; governance quorum/appeals/succession (requires real humans, not schema); operational security contact; CITATION.cff completion; GitHub Actions SHA-pinning; private evidence vault for confidential sources (until it exists, confidential material is prohibited in this repository). See ROADMAP.md.

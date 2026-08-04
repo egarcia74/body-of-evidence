@@ -2,14 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/your-org/body-of-evidence/schema/event.schema.json",
   "title": "Event",
-  "description": "A dated occurrence relevant to an investigation. Events are the atomic units of timelines.",
+  "description": "A dated occurrence relevant to an investigation. Events are the atomic units of timelines. An event record asserts only that something occurred and when; the CHARACTERISATION of an event (who ordered it, what it meant, whether it was lawful) must be expressed as Claims with evidence, not embedded in the event description. Where the occurrence of the event is itself contested, a Claim asserting the event must exist and the event's claim_ids must reference it.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "title", "date", "created_at"],
+  "required": ["id", "version_id", "type", "title", "date", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:event:<ulid>"
+      "description": "Stable entity identifier in format boe:event:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "event",

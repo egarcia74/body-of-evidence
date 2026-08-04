@@ -5,11 +5,14 @@
   "description": "A bounded inquiry with a defined scope, stated methodology, and lifecycle state. The Investigation entity is the container for all related claims, evidence, sources, and findings.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "title", "slug", "status", "scope", "lead_investigator", "created_at"],
+  "required": ["id", "version_id", "type", "title", "slug", "status", "scope", "lead_investigator", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:investigation:<ulid>"
+      "description": "Stable entity identifier in format boe:investigation:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "investigation",
@@ -96,11 +99,6 @@
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/investigationReference" },
       "description": "Other investigations that overlap or are directly related."
-    },
-    "revision_history": {
-      "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/revision_ref" },
-      "description": "Ordered list of Revision entity IDs documenting changes to this investigation."
     }
   },
   "additionalProperties": false

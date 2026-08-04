@@ -5,11 +5,14 @@
   "description": "A primary or secondary document, recording, or artefact from which evidence is extracted. Sources have documented provenance, a type classification, and a quality tier.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "source_type", "title", "provenance", "quality_tier", "created_at"],
+  "required": ["id", "version_id", "type", "source_type", "title", "provenance", "quality_tier", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:source:<ulid>"
+      "description": "Stable entity identifier in format boe:source:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "source",
@@ -54,12 +57,58 @@
     "url": {
       "type": "string",
       "format": "uri",
-      "description": "URL where the source can be accessed."
+      "description": "URL where the source can be accessed. A URL locates a source; it does NOT identify its content — URLs rot and their contents change. Use 'artifacts' to fix exact bytes."
     },
     "archive_url": {
       "type": "string",
       "format": "uri",
       "description": "Persistent archived copy URL (web.archive.org, archive.ph, etc.)."
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Exact byte representations of this source that have been obtained and verified. Every source used to support an assessment above confidence level 2 should have at least one artifact with a digest. This is what makes 'the source said X' checkable against silent content replacement.",
+      "items": {
+        "type": "object",
+        "required": ["sha256", "media_type", "retrieved_at"],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "SHA-256 digest (lowercase hex) of the exact bytes of this artifact."
+          },
+          "byte_length": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Size of the artifact in bytes."
+          },
+          "media_type": {
+            "type": "string",
+            "description": "IANA media type, e.g. 'application/pdf', 'text/html'."
+          },
+          "retrieved_at": {
+            "$ref": "common.schema.json#/$defs/isoDateTime",
+            "description": "When these exact bytes were retrieved."
+          },
+          "retrieved_from": {
+            "type": "string",
+            "format": "uri",
+            "description": "The URL these bytes were retrieved from."
+          },
+          "storage_location": {
+            "type": "string",
+            "description": "Where the artifact bytes are preserved (archive URL, institutional repository, content-addressed store). Large artifacts do not belong in Git history."
+          },
+          "rights": {
+            "type": "string",
+            "description": "Rights/licence status of this artifact and whether redistribution is permitted. Third-party documents are NOT covered by the repository licence."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Verification notes (e.g., checksum match against an official published digest)."
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "location": {
       "type": "string",

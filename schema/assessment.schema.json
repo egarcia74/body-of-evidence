@@ -2,14 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/your-org/body-of-evidence/schema/assessment.schema.json",
   "title": "Assessment",
-  "description": "A structured evaluation of a claim's evidential support, including a confidence level and a written rationale. Assessments are made by investigators applying the platform methodology.",
-  "version": "0.1.0",
+  "description": "A structured evaluation of a claim's evidential support. An assessment records three SEPARATE dimensions: (1) conclusion — the assessed direction of the evidence; (2) confidence — the epistemic strength of that conclusion; (3) dispute_status — whether the assessment is under active formal challenge. These are deliberately not conflated: an assessment can be high-confidence and disputed, or low-confidence and undisputed.",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "type", "claim_id", "confidence_level", "confidence_label", "rationale", "assessor", "created_at"],
+  "required": ["id", "version_id", "type", "claim_id", "conclusion", "confidence_level", "confidence_label", "rationale", "assessor", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:assessment:<ulid>"
+      "description": "Stable entity identifier in format boe:assessment:<ulid>. Constant across versions."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "assessment",
@@ -20,32 +23,30 @@
       "pattern": "^boe:claim:[0-9A-HJKMNP-TV-Z]{26}$",
       "description": "The claim being assessed."
     },
+    "conclusion": {
+      "$ref": "common.schema.json#/$defs/conclusion"
+    },
     "confidence_level": {
       "$ref": "common.schema.json#/$defs/confidenceLevel"
     },
     "confidence_label": {
       "$ref": "common.schema.json#/$defs/confidenceLabel"
     },
+    "dispute_status": {
+      "$ref": "common.schema.json#/$defs/disputeStatus"
+    },
     "rationale": {
       "type": "string",
       "minLength": 50,
-      "description": "Written explanation of why this confidence level was assigned. Must describe: what evidence was weighed, why it supports this level, what contradictory evidence exists, and what new evidence would change the assessment."
+      "description": "Written explanation of the conclusion and confidence level. Must describe: what evidence was weighed, why it supports this conclusion at this confidence, what contrary evidence exists, and what new evidence would change the assessment."
     },
-    "evidence_considered": {
+    "link_ids": {
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^boe:evidence:[0-9A-HJKMNP-TV-Z]{26}$"
+        "pattern": "^boe:claim_evidence_link:[0-9A-HJKMNP-TV-Z]{26}$"
       },
-      "description": "IDs of Evidence entities considered in this assessment."
-    },
-    "contradictory_evidence": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "pattern": "^boe:evidence:[0-9A-HJKMNP-TV-Z]{26}$"
-      },
-      "description": "IDs of Evidence entities that argue against the claim."
+      "description": "The ClaimEvidenceLink entities considered in this assessment. Links carry polarity, so supporting and contradicting evidence are both captured here — an assessment that omits known contradicting links is methodologically invalid."
     },
     "confidence_factors": {
       "type": "object",
@@ -86,7 +87,11 @@
     },
     "what_would_change_assessment": {
       "type": "string",
-      "description": "Explicit statement of what new evidence or information would change this confidence level."
+      "description": "Explicit statement of what new evidence or information would change this conclusion or confidence level."
+    },
+    "methodology_version": {
+      "type": "string",
+      "description": "The version of METHODOLOGY.md this assessment was made under (e.g., '0.2.0')."
     },
     "assessor": {
       "$ref": "common.schema.json#/$defs/contributor"
@@ -99,10 +104,6 @@
     },
     "updated_at": {
       "$ref": "common.schema.json#/$defs/isoDateTime"
-    },
-    "revision_history": {
-      "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/revision_ref" }
     }
   },
   "additionalProperties": false

@@ -5,11 +5,14 @@
   "description": "A formal peer review of an investigation, finding, or claim. Reviews are part of the permanent record of an investigation. They can endorse, correct, or formally challenge content.",
   "version": "0.1.0",
   "type": "object",
-  "required": ["id", "type", "subject_id", "subject_type", "review_type", "reviewer", "outcome", "created_at"],
+  "required": ["id", "version_id", "type", "subject_id", "subject_type", "review_type", "reviewer", "outcome", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:review:<ulid>"
+      "description": "Stable entity identifier in format boe:review:<ulid>."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "review",

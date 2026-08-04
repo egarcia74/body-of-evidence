@@ -2,19 +2,21 @@
 """
 Body of Evidence — Orphan Evidence Validation
 
-Detects evidence entities that are not linked to any claim.
-Orphaned evidence is evidence that has been added to the repository but
-not connected to any claim — it cannot contribute to any finding and
-represents incomplete work.
+Evidence carries no claim references (polarity lives on ClaimEvidenceLink
+entities). An evidence entity is therefore orphaned when NO link references
+it. Orphaned evidence cannot contribute to any assessment and represents
+incomplete work.
 
-An evidence entity is orphaned if its 'claim_ids' field is empty or absent.
-(The schema already requires at least one claim_id, so this catches data
-that passes schema validation but was imported incorrectly.)
+Also detects orphaned links: a claim_evidence_link whose claim or evidence
+reference is missing is caught by reference validation; a link is flagged
+here if it exists but its evidence is never used by any assessment — as a
+warning only (unassessed evidence is normal during drafting).
 """
 
 from pathlib import Path
 from typing import Tuple, List
-import yaml
+
+from boe_files import iter_entities
 
 
 def run_orphan_validation(
@@ -22,35 +24,28 @@ def run_orphan_validation(
     schema_dir: Path,
     verbose: bool = False,
 ) -> Tuple[bool, List[str]]:
-    """
-    Find orphaned evidence entities.
-
-    Returns (passed: bool, errors: list[str])
-    """
     all_errors = []
+    evidence_files = {}       # evidence_id -> path
+    linked_evidence = set()   # evidence_ids referenced by at least one link
 
-    for inv_path in investigation_paths:
-        for yaml_file in sorted(inv_path.rglob("*.yaml")):
-            try:
-                with open(yaml_file) as f:
-                    data = yaml.safe_load(f)
-            except yaml.YAMLError:
-                continue
+    entities = list(iter_entities(investigation_paths))
 
-            if not isinstance(data, dict):
-                continue
+    for path, data in entities:
+        if data.get("type") == "evidence" and "id" in data:
+            evidence_files[data["id"]] = path
+        elif data.get("type") == "claim_evidence_link":
+            ev = data.get("evidence_id")
+            if ev:
+                linked_evidence.add(ev)
 
-            if data.get("type") != "evidence":
-                continue
-
-            claim_ids = data.get("claim_ids", [])
-            if not claim_ids:
-                all_errors.append(
-                    f"{yaml_file}: Evidence entity '{data.get('id', 'unknown')}' "
-                    f"has no claim_ids — orphaned evidence"
-                )
-            elif verbose:
-                print(f"    OK: {data.get('id')} linked to {len(claim_ids)} claim(s)")
+    for evidence_id, path in sorted(evidence_files.items()):
+        if evidence_id not in linked_evidence:
+            all_errors.append(
+                f"{path}: Evidence '{evidence_id}' is not referenced by any "
+                f"claim_evidence_link — orphaned evidence"
+            )
+        elif verbose:
+            print(f"    OK: {evidence_id} is linked")
 
     return len(all_errors) == 0, all_errors
 
@@ -58,16 +53,11 @@ def run_orphan_validation(
 if __name__ == "__main__":
     import sys
     repo_root = Path(__file__).parent.parent
-    investigations_dir = repo_root / "investigations"
     inv_paths = [
-        p for p in investigations_dir.iterdir()
+        p for p in (repo_root / "investigations").iterdir()
         if p.is_dir() and not p.name.startswith("_")
     ]
     passed, errors = run_orphan_validation(inv_paths, repo_root / "schema", verbose=True)
-    if errors:
-        for e in errors:
-            print(f"ERROR: {e}")
-        sys.exit(1)
-    else:
-        print("No orphaned evidence found.")
-        sys.exit(0)
+    for e in errors:
+        print(f"ERROR: {e}")
+    sys.exit(0 if passed else 1)

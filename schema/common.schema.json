@@ -30,17 +30,37 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 5,
-      "description": "Evidence confidence on a 1–5 scale: 1=speculative, 2=contested, 3=plausible, 4=probable, 5=confirmed"
+      "description": "Epistemic confidence on a 1–5 ordinal scale: 1=speculative, 2=weak, 3=moderate, 4=strong, 5=near_certain. Confidence measures evidence strength only. Whether a claim is disputed is recorded separately in disputeStatus; the assessed direction is recorded in conclusion."
     },
     "confidenceLabel": {
       "type": "string",
-      "enum": ["speculative", "contested", "plausible", "probable", "confirmed"],
-      "description": "Human-readable label corresponding to the confidence level."
+      "enum": ["speculative", "weak", "moderate", "strong", "near_certain"],
+      "description": "Human-readable label corresponding to the confidence level. Must pair with the numeric level: 1=speculative, 2=weak, 3=moderate, 4=strong, 5=near_certain."
+    },
+    "conclusion": {
+      "type": "string",
+      "enum": ["supported", "contradicted", "mixed", "insufficient", "not_assessed"],
+      "description": "The assessed direction of the evidence relative to the claim, separate from confidence. 'mixed' means credible evidence exists on multiple sides; 'insufficient' means the available evidence cannot resolve the claim."
+    },
+    "disputeStatus": {
+      "type": "string",
+      "enum": ["undisputed", "disputed", "unresolved"],
+      "description": "Whether the assessment is subject to an active formal challenge. Separate from confidence: a high-confidence assessment can still be disputed."
+    },
+    "ulid": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "A bare ULID (Crockford Base32, 26 characters)."
+    },
+    "versionId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Immutable version identifier (ULID) for this specific version of the entity. The entity 'id' is stable across versions; 'version_id' is unique per version. A new version of an entity keeps the same id and gets a new version_id. Which version is current is determined by the investigation's package manifest, never by editing old files."
     },
     "lifecycleStatus": {
       "type": "string",
-      "enum": ["draft", "review", "published", "revised", "superseded", "archived"],
-      "description": "The lifecycle state of an entity."
+      "enum": ["draft", "review", "published", "archived"],
+      "description": "The lifecycle state of an entity version. Note: there is no 'superseded' status — supersession is a property of the package manifest (an old version simply stops being listed as current), never a mutation of the old entity file."
     },
     "investigationReference": {
       "type": "string",

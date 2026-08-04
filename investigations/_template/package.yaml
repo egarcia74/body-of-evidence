@@ -1,0 +1,27 @@
+# Package Manifest Template
+# The single source of truth for WHICH entity versions are current in this
+# investigation. Supersession = a version_id no longer being listed here.
+# Old entity files are never edited. See schema/package.schema.json.
+
+manifest_version: "1"
+investigation_id: "boe:investigation:REPLACE_WITH_NEW_ULID"
+slug: "your-investigation-slug"             # Must match the directory name
+release_version: "0.1.0"
+schema_version: "0.2.0"
+methodology_version: "0.2.0"
+
+# One entry per entity id — the version_id listed is the CURRENT version.
+entities:
+  - id: "boe:investigation:REPLACE_WITH_NEW_ULID"
+    version_id: "REPLACE_WITH_NEW_ULID"
+    path: "investigation.yaml"
+
+dependencies: []
+
+maintainers:
+  - identifier: "your-github-username"
+    role: "lead_investigator"
+    conflict_of_interest: "none"
+
+released_at: "YYYY-MM-DDTHH:MM:SSZ"
+notes: ""

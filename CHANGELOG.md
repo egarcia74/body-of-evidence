@@ -8,6 +8,25 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to independent architecture review (2026-08-05)
+
+Schema version 0.2.0. Breaking changes; no migration needed (no investigation data existed). Full reasoning in DECISIONS.md D-009 through D-014; the review itself is preserved in docs/reviews/.
+
+- Identity/version split: every entity now carries a stable `id` plus an immutable per-version `version_id`; supersession moved to package manifests; `superseded` and `revised` lifecycle statuses removed
+- New `ClaimEvidenceLink` entity: claim-evidence connections and polarity moved off Evidence; dual backlink arrays removed from Claim and Evidence
+- Assessment split into three dimensions: `conclusion`, `confidence_level` (relabelled: speculative/weak/moderate/strong/near_certain), `dispute_status`; `claim_status` removed from Claim
+- Source entities gain `artifacts` with SHA-256 fixity and per-artifact rights metadata; tier A/B sources require digests
+- New `package.yaml` manifest per investigation (schema/package.schema.json)
+- Validator overhaul: fails on vacuous runs; `--self-test` proves valid fixtures pass and invalid fixtures fail; .yml bypass closed; duplicate YAML keys rejected; all schema errors reported; local $ref registry; real ULID validation (charset + timestamp constraint); reference type-checking; manifest consistency checks
+- New fixtures/: one valid fictional package, five invalid packages (one invariant violated each)
+- Tests rewritten around fixtures and run in CI; dependencies pinned
+- README reclassified as pre-alpha; ARCHITECTURE.md now separates implemented from planned validation; licence scope narrowed to original work only
+- Fixed: three v0.1 example IDs contained characters invalid in Crockford Base32 (caught by the new ULID validation); broken relative link in investigation template; ulid-py/python-ulid API mismatch in template comments
+
+### Removed
+
+- `scripts/init-repo.command` (bootstrap workaround; deleted git locks and rewrote git identity — unsafe as a distributed utility)
+
 ---
 
 ## [0.1.0] — 2026-08-04

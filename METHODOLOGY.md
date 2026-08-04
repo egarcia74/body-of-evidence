@@ -32,19 +32,27 @@ Every source must have a documented provenance chain: where did this document co
 
 ---
 
-## The Confidence Framework
+## The Assessment Framework
 
-Every `Assessment` entity carries a confidence level from 1 to 5.
+Every `Assessment` entity records **three separate dimensions**. Conflating them was an error in methodology v0.1, corrected in v0.2:
+
+1. **Conclusion** — which way the evidence points: `supported`, `contradicted`, `mixed`, `insufficient`, or `not_assessed`. "Mixed" means credible evidence exists on multiple sides. "Insufficient" means the available evidence cannot resolve the claim either way.
+2. **Confidence** — how strong the evidence for that conclusion is, on the 1–5 ordinal scale below.
+3. **Dispute status** — whether the assessment is under active formal challenge: `undisputed`, `disputed`, or `unresolved`.
+
+These are independent. An assessment can be high-confidence and disputed (someone has filed a challenge against a well-evidenced conclusion), or low-confidence and undisputed (weak evidence nobody contests). A claim with strong evidence on both sides is `conclusion: mixed` — being contested is *not* a confidence level.
 
 ### Confidence Levels
 
 | Level | Label | Description |
 |---|---|---|
-| **5** | `confirmed` | Established beyond reasonable doubt. Multiple independent primary sources corroborate the claim. No credible alternative explanation consistent with the evidence. The claim would survive aggressive adversarial review. |
-| **4** | `probable` | Strongly supported by evidence. Minor evidentiary gaps or single-source dependency that cannot be resolved with currently available materials. Preponderance of evidence supports the claim. |
-| **3** | `plausible` | Supported by available evidence, but alternative explanations remain viable. The claim is more likely true than not, but reasonable investigators could disagree. |
-| **2** | `contested` | Evidence exists on multiple sides of the claim. No clear preponderance. The claim cannot be resolved with available evidence. Both the claim and its negation are defensible. |
-| **1** | `speculative` | Limited or indirect evidence. The claim is possible but not well-supported. Significant uncertainty. Included for completeness, not as a finding. |
+| **5** | `near_certain` | Multiple independent primary sources corroborate the conclusion. No credible alternative explanation consistent with the evidence. Would survive aggressive adversarial review. |
+| **4** | `strong` | Strongly supported by evidence. Minor evidentiary gaps or single-source dependency that cannot be resolved with currently available materials. |
+| **3** | `moderate` | Supported by available evidence, but alternative explanations remain viable. Reasonable investigators could disagree. |
+| **2** | `weak` | Limited or indirect evidence for the conclusion. Meaningful uncertainty remains. |
+| **1** | `speculative` | Minimal or highly indirect evidence. The conclusion is possible but not well-supported. Included for completeness, not as a finding. |
+
+The numeric level and label must always pair as shown. The scale is **ordinal, not probabilistic** — a 4 is not "80% likely". Do not attach percentages to these levels unless the project develops and validates a calibration method.
 
 ### Confidence Factors
 
@@ -62,7 +70,7 @@ Confidence is determined by weighing these factors:
 
 ### Confidence Is Not Certainty
 
-A confidence level of 5 does not mean we are certain. It means the evidence, as we understand it, is overwhelming. New evidence can change any assessment. When it does, a `Revision` entity documents the change.
+A confidence level of 5 does not mean we are certain. It means the evidence, as we understand it, is overwhelming. New evidence can change any assessment. When it does, a new assessment version is created and the package manifest is updated — the old version is preserved untouched.
 
 ### Confidence Must Be Reasoned
 
@@ -116,15 +124,15 @@ A valid claim:
 
 ## Revision and Correction Policy
 
-When evidence changes, or an error is discovered:
+Every entity has a stable `id` and a per-version `version_id`. Which version is current is recorded **only** in the investigation's package manifest (`package.yaml`). When evidence changes, or an error is discovered:
 
-1. Do not edit the existing `Assessment` or `Finding` in place (unless it is in `draft` state).
-2. Create a new `Assessment` or `Finding` with updated content.
-3. Create a `Revision` entity referencing both old and new entities.
-4. The old entity is preserved. Its status is updated to `superseded`.
-5. Document the reason for the revision in the `Revision.reason` field.
+1. Never modify a published entity version file in any way — not its content, and not its status field. A published version's bytes are frozen.
+2. Create a new version file: same `id`, new `version_id`, updated content.
+3. Create a `Revision` entity recording the old `version_id`, the new `version_id`, and the reason for the change.
+4. Update the package manifest to list the new `version_id` as current.
+5. The old version file remains in the repository, untouched. It is superseded *by omission from the manifest*, not by mutation.
 
-This means the historical record of what was concluded, and when, is always intact.
+This means the historical record of what was concluded, and when, is always intact — and "superseded" is a fact about the release, never an edit to the past. (Methodology v0.1 instructed contributors to update the old entity's status to `superseded`; that was itself a mutation of the historical record and was corrected in v0.2.)
 
 ---
 

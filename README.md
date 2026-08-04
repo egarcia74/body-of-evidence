@@ -3,7 +3,9 @@
 **An open-source, version-controlled evidence platform for publishing transparent, reproducible investigations built from primary sources.**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-orange.svg)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/status-pre--alpha-red.svg)](ROADMAP.md)
+
+> **PRE-ALPHA.** This repository is an architecture scaffold under active design review. The data model and validators exist and are tested against fixtures, but no investigations are published, governance contacts are placeholders, and the schema will change. Do not rely on this platform for evidentiary integrity yet — that is the destination, not the current state.
 
 ---
 
@@ -67,6 +69,7 @@ body-of-evidence/
 │   └── _template/           # Template for new investigations
 ├── schema/                  # JSON Schema definitions for all entities
 ├── examples/                # YAML examples of each entity type
+├── fixtures/                # Valid + invalid packages proving the validators work
 ├── scripts/                 # Validation, generation, utility scripts
 ├── docs/                    # Extended documentation, guides, history
 │   ├── guides/              # How-to guides for contributors
@@ -143,13 +146,17 @@ See [VISION.md](VISION.md) for the full philosophy.
 
 ## Status
 
-**Version 0.1 — Platform Bootstrap.** The data model, schema, and infrastructure are established. No investigations are published yet. The first investigations will be added in v0.2.
+**Pre-alpha (0.x) — Platform Bootstrap.** The data model, schemas, validators, and fixtures exist; validation is proven non-vacuous by self-test. No investigations are published. Not yet provided: signed releases, dead-link checking, cross-package identity resolution, operational governance (maintainer contacts are placeholders), and a rights/licensing model for third-party source material. See [ROADMAP.md](ROADMAP.md) and [DECISIONS.md](DECISIONS.md) for what changes before that language softens.
+
+An independent architecture review of the initial scaffold, and the changes made in response, are preserved in `docs/reviews/`.
 
 ---
 
 ## License
 
-Apache 2.0. See [LICENSE](LICENSE).
+Apache 2.0 for the software, schemas, and original documentation in this repository. See [LICENSE](LICENSE).
+
+**Third-party source material is not covered.** The repository licence cannot grant redistribution rights over external documents, quotations, or archives referenced by investigations. Each source artifact carries its own rights metadata (`artifacts[].rights` in the Source entity), and a full per-artifact licensing policy (SPDX/REUSE) is a pre-1.0 requirement.
 
 ## Citation
 

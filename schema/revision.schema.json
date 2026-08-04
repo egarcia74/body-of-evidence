@@ -2,14 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/your-org/body-of-evidence/schema/revision.schema.json",
   "title": "Revision",
-  "description": "A documented change to any entity that was previously in published state. Revisions are how the platform avoids silent rewrites. The old entity is preserved and marked superseded; the new entity is the current version; the Revision records the change.",
-  "version": "0.1.0",
+  "description": "A change activity connecting an old entity version to a new one. Revisions record WHY a change happened; WHICH version is current is recorded in the package manifest, never by editing old files. Old version files are never modified in any way — not even their status field. Supersession is a property of the manifest, not of the superseded file.",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "type", "entity_id", "entity_type", "reason", "author", "created_at"],
+  "required": ["id", "version_id", "type", "entity_id", "entity_type", "reason", "author", "created_at"],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
-      "description": "Unique identifier in format boe:revision:<ulid>"
+      "description": "Stable entity identifier in format boe:revision:<ulid>."
+    },
+    "version_id": {
+      "$ref": "common.schema.json#/$defs/versionId"
     },
     "type": {
       "const": "revision",
@@ -22,18 +25,16 @@
     },
     "entity_type": {
       "type": "string",
-      "enum": ["investigation", "claim", "evidence", "source", "assessment", "finding", "person", "organisation", "event", "timeline", "relationship", "review"],
+      "enum": ["investigation", "claim", "evidence", "source", "assessment", "finding", "person", "organisation", "event", "timeline", "relationship", "review", "claim_evidence_link"],
       "description": "The type of the entity being revised."
     },
-    "superseded_entity_id": {
-      "type": "string",
-      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
-      "description": "The ID of the old entity that this revision supersedes (if the revision creates a new entity version)."
+    "old_version_id": {
+      "$ref": "common.schema.json#/$defs/versionId",
+      "description": "The version_id of the entity version being superseded. The old version file is never modified."
     },
-    "new_entity_id": {
-      "type": "string",
-      "pattern": "^boe:[a-z_]+:[0-9A-HJKMNP-TV-Z]{26}$",
-      "description": "The ID of the new entity created by this revision (if applicable)."
+    "new_version_id": {
+      "$ref": "common.schema.json#/$defs/versionId",
+      "description": "The version_id of the new entity version created by this revision. The entity 'id' stays the same across both versions."
     },
     "revision_type": {
       "type": "string",

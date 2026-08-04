@@ -1,0 +1,22 @@
+# FIXTURE — fictional investigation used to prove the validators work.
+# Nothing in this file describes real people, organisations, or events.
+id: "boe:investigation:01JF0000000000000000000001"
+version_id: "01JFV000000000000000000001"
+type: "investigation"
+title: "Fixture: Harbourville Bridge Tender Inquiry"
+slug: "harbour-tender-inquiry"
+status: "published"
+summary: >
+  A fictional inquiry into the tender process for the Harbourville bridge
+  contract, used as a validation fixture.
+scope:
+  description: >
+    Fictional scope covering the 2020 Harbourville bridge tender process.
+  time_period:
+    start: "2020"
+    end: "2021"
+lead_investigator:
+  identifier: "fixture-investigator"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+created_at: "2026-08-04T00:00:00Z"

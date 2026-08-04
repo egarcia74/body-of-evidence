@@ -1,0 +1,48 @@
+# Example: Package Manifest
+# Lives at investigations/<slug>/package.yaml
+#
+# The manifest is the single source of truth for WHICH entity versions are
+# current. Supersession = an old version_id no longer being listed here.
+# Old entity files are NEVER edited — not even their status field.
+# Consumers must resolve current state from this manifest, never from
+# filenames or Git timestamps.
+# See schema/package.schema.json for the full schema.
+
+manifest_version: "1"
+investigation_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+slug: "church-committee"
+release_version: "1.0.0"                    # SemVer of THIS package, independent of platform version
+schema_version: "0.2.0"                     # Body of Evidence schema version the entities conform to
+methodology_version: "0.2.0"                # METHODOLOGY.md version assessments were made under
+
+# Every entity version that is CURRENT in this release. One entry per entity id.
+entities:
+  - id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
+    version_id: "01HVV000000000000000000001"
+    path: "investigation.yaml"
+  - id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
+    version_id: "01HVV000000000000000000002"
+    path: "claims/claim-htlingual-mail-opening.yaml"
+  - id: "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
+    version_id: "01HVV000000000000000000003"
+    path: "sources/source-church-committee-book-2.yaml"
+  - id: "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
+    version_id: "01HVV000000000000000000004"
+    path: "evidence/evidence-htlingual-fbi-participation.yaml"
+  - id: "boe:claim_evidence_link:01HV8QKJZ9XTMK3P2R7N5W6D4S"
+    version_id: "01HVV000000000000000000014"
+    path: "links/link-htlingual-supports.yaml"
+  - id: "boe:assessment:01HV8QKJZ9XTMK3P2R7N5W6D4J"
+    version_id: "01HVV000000000000000000005"
+    path: "assessments/assessment-htlingual.yaml"
+
+# Other packages whose entities this package references
+dependencies: []
+
+maintainers:
+  - identifier: "github-username"
+    role: "lead_investigator"
+    conflict_of_interest: "none"
+
+released_at: "2026-08-04T00:00:00Z"
+notes: "Example manifest for documentation purposes."

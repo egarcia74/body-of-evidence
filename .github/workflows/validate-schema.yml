@@ -1,27 +1,23 @@
-name: Validate Schema
+name: Validate
 
 on:
   push:
     branches: [main]
-    paths:
-      - "investigations/**"
-      - "schema/**"
-      - "examples/**"
-      - "scripts/**"
   pull_request:
     branches: [main]
-    paths:
-      - "investigations/**"
-      - "schema/**"
-      - "examples/**"
-      - "scripts/**"
+
+permissions:
+  contents: read
 
 jobs:
   validate:
-    name: Run validation suite
+    name: Validation suite
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
+      # TODO: pin actions to full commit SHAs before first tagged release
+      # (GitHub secure-use guidance). Tags used during pre-alpha.
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -35,20 +31,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
-      - name: Run schema validation
-        run: python scripts/validate.py --check schema --verbose
+      - name: Run unit tests
+        run: python -m pytest tests/ -v
 
-      - name: Run ID validation
-        run: python scripts/validate.py --check ids --verbose
+      - name: Validator self-test (valid fixtures must pass, invalid must fail)
+        run: python scripts/validate.py --self-test --allow-empty
 
-      - name: Run reference validation
-        run: python scripts/validate.py --check references --verbose
-
-      - name: Run orphan detection
-        run: python scripts/validate.py --check orphans --verbose
-
-      - name: Run provenance validation
-        run: python scripts/validate.py --check provenance --verbose
-
-      - name: Run full validation suite
-        run: python scripts/validate.py
+      - name: Validate investigations
+        # --allow-empty is TEMPORARY: no investigations exist yet in pre-alpha.
+        # Remove it when the first investigation package lands so that CI
+        # fails loudly if investigation data ever silently disappears.
+        run: python scripts/validate.py --allow-empty --verbose

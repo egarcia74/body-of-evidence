@@ -1,112 +1,175 @@
 """
-Body of Evidence — Validation Test Stubs
+Body of Evidence — Validation Tests
 
-These tests verify that the validation scripts themselves work correctly.
-They will be expanded when real investigation data is available.
+These tests prove the validators do what they claim:
+- The valid fixture package passes every check.
+- Every invalid fixture package fails at least one check.
+- Schema files are well-formed; examples validate against them.
 
 Run with: pytest tests/
 """
 
+import json
 import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
-# Add scripts/ to the path
 REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+from validate_schema import run_schema_validation
+from validate_ids import run_id_validation, validate_id_format, validate_ulid
+from validate_references import run_reference_validation
+from validate_orphans import run_orphan_validation
+from validate_provenance import run_provenance_validation
 
-class TestSchemaValidation:
-    """Test schema validation script."""
+SCHEMA_DIR = REPO_ROOT / "schema"
+FIXTURES = REPO_ROOT / "fixtures"
 
+ALL_CHECKS = [
+    run_schema_validation,
+    run_id_validation,
+    run_reference_validation,
+    run_orphan_validation,
+    run_provenance_validation,
+]
+
+EXPECTED_SCHEMAS = [
+    "common.schema.json",
+    "investigation.schema.json",
+    "claim.schema.json",
+    "claim_evidence_link.schema.json",
+    "evidence.schema.json",
+    "source.schema.json",
+    "person.schema.json",
+    "organisation.schema.json",
+    "event.schema.json",
+    "timeline.schema.json",
+    "assessment.schema.json",
+    "relationship.schema.json",
+    "revision.schema.json",
+    "review.schema.json",
+    "finding.schema.json",
+    "package.schema.json",
+]
+
+
+class TestSchemaFiles:
     def test_schema_files_exist(self):
-        """All expected schema files must be present."""
-        schema_dir = REPO_ROOT / "schema"
-        expected_schemas = [
-            "common.schema.json",
-            "investigation.schema.json",
-            "claim.schema.json",
-            "evidence.schema.json",
-            "source.schema.json",
-            "person.schema.json",
-            "organisation.schema.json",
-            "event.schema.json",
-            "timeline.schema.json",
-            "assessment.schema.json",
-            "relationship.schema.json",
-            "revision.schema.json",
-            "review.schema.json",
-            "finding.schema.json",
-        ]
-        for schema_name in expected_schemas:
-            assert (schema_dir / schema_name).exists(), (
-                f"Missing schema: {schema_name}"
-            )
+        for schema_name in EXPECTED_SCHEMAS:
+            assert (SCHEMA_DIR / schema_name).exists(), f"Missing schema: {schema_name}"
 
     def test_schema_files_are_valid_json(self):
-        """All schema files must be valid JSON."""
-        import json
-        schema_dir = REPO_ROOT / "schema"
-        for schema_file in schema_dir.glob("*.json"):
+        for schema_file in SCHEMA_DIR.glob("*.json"):
             with open(schema_file) as f:
-                try:
-                    json.load(f)
-                except json.JSONDecodeError as e:
-                    pytest.fail(f"Invalid JSON in {schema_file}: {e}")
+                json.load(f)
 
-    def test_examples_are_valid_yaml(self):
-        """All example YAML files must parse without error."""
-        import yaml
+    def test_examples_parse_and_have_required_identity_fields(self):
         examples_dir = REPO_ROOT / "examples"
-        for yaml_file in examples_dir.glob("*.yaml"):
-            with open(yaml_file) as f:
-                try:
-                    data = yaml.safe_load(f)
-                    assert isinstance(data, dict), f"{yaml_file}: Expected a dict at root"
-                except yaml.YAMLError as e:
-                    pytest.fail(f"Invalid YAML in {yaml_file}: {e}")
-
-
-class TestIdValidation:
-    """Test ID format validation."""
-
-    def test_valid_id_format(self):
-        """Valid IDs should pass format check."""
-        from validate_ids import validate_id_format
-        valid_ids = [
-            "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F",
-            "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E",
-            "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G",
-        ]
-        for id_str in valid_ids:
-            is_valid, error = validate_id_format(id_str)
-            assert is_valid, f"Expected valid ID '{id_str}' to pass: {error}"
-
-    def test_invalid_id_formats(self):
-        """Invalid IDs should fail format check."""
-        from validate_ids import validate_id_format
-        invalid_ids = [
-            "claim:01HV8QKJZ9XTMK3P2R7N5W6D4F",    # Missing boe: prefix
-            "boe:01HV8QKJZ9XTMK3P2R7N5W6D4F",       # Missing type
-            "boe:claim:not-a-ulid",                   # Invalid ULID
-            "boe:claim:",                              # Empty ULID
-            "BOE:CLAIM:01HV8QKJZ9XTMK3P2R7N5W6D4F", # Wrong case
-        ]
-        for id_str in invalid_ids:
-            is_valid, error = validate_id_format(id_str)
-            assert not is_valid, f"Expected invalid ID '{id_str}' to fail"
-
-
-class TestExampleEntityStructure:
-    """Test that example YAML files have required fields."""
-
-    def test_all_examples_have_id_and_type(self):
-        """Every example must have both 'id' and 'type' fields."""
-        import yaml
-        examples_dir = REPO_ROOT / "examples"
+        checked = 0
         for yaml_file in examples_dir.glob("*.yaml"):
             with open(yaml_file) as f:
                 data = yaml.safe_load(f)
-            assert "id" in data, f"{yaml_file}: Missing 'id' field"
-            assert "type" in data, f"{yaml_file}: Missing 'type' field"
+            assert isinstance(data, dict), f"{yaml_file}: expected a mapping"
+            if yaml_file.name == "package.yaml":
+                assert "manifest_version" in data, f"{yaml_file}: missing manifest_version"
+            else:
+                assert "id" in data, f"{yaml_file}: missing 'id'"
+                assert "type" in data, f"{yaml_file}: missing 'type'"
+                assert "version_id" in data, f"{yaml_file}: missing 'version_id'"
+            checked += 1
+        assert checked >= 14, f"Expected at least 14 example files, found {checked}"
+
+    def test_examples_validate_against_schemas(self):
+        """Every example must validate against its declared schema."""
+        passed, errors = run_schema_validation(
+            [REPO_ROOT / "examples"], SCHEMA_DIR, verbose=False
+        )
+        assert passed, "Examples failed schema validation:\n" + "\n".join(errors)
+
+
+class TestUlidValidation:
+    def test_valid_ids(self):
+        for id_str in [
+            "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F",
+            "boe:claim_evidence_link:01JF0000000000000000000005",
+            "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E",
+        ]:
+            is_valid, error = validate_id_format(id_str)
+            assert is_valid, f"'{id_str}' should be valid: {error}"
+
+    def test_invalid_ids(self):
+        for id_str in [
+            "claim:01HV8QKJZ9XTMK3P2R7N5W6D4F",       # missing boe:
+            "boe:01HV8QKJZ9XTMK3P2R7N5W6D4F",          # missing type
+            "boe:claim:not-a-ulid",                     # not a ULID
+            "boe:claim:",                               # empty
+            "BOE:CLAIM:01HV8QKJZ9XTMK3P2R7N5W6D4F",   # wrong case
+            "boe:claim:01HVILLEGALULIDOOOOOOOO4F",     # I/L/O/U chars
+            "boe:claim:81HV8QKJZ9XTMK3P2R7N5W6D4F",   # first char > 7
+        ]:
+            is_valid, _ = validate_id_format(id_str)
+            assert not is_valid, f"'{id_str}' should be invalid"
+
+    def test_ulid_charset(self):
+        ok, _ = validate_ulid("01HV8QKJZ9XTMK3P2R7N5W6D4F")
+        assert ok
+        bad, _ = validate_ulid("01HV8QKJZ9XTMK3P2R7N5W6DIL")  # I and L invalid
+        assert not bad
+
+
+class TestValidFixture:
+    """The valid fixture package must pass every check — this is what makes
+    the validation suite non-vacuous."""
+
+    @pytest.fixture
+    def valid_packages(self):
+        pkgs = sorted(p for p in (FIXTURES / "valid").iterdir() if p.is_dir())
+        assert pkgs, "fixtures/valid must contain at least one package"
+        return pkgs
+
+    @pytest.mark.parametrize("check", ALL_CHECKS, ids=lambda c: c.__name__)
+    def test_valid_fixture_passes(self, valid_packages, check):
+        passed, errors = check(
+            investigation_paths=valid_packages,
+            schema_dir=SCHEMA_DIR,
+            verbose=False,
+        )
+        assert passed, f"{check.__name__} failed on valid fixture:\n" + "\n".join(errors)
+
+
+class TestInvalidFixtures:
+    """Every invalid fixture must be rejected by at least one check."""
+
+    def _all_checks_pass(self, pkg: Path) -> tuple[bool, list]:
+        failing = []
+        for check in ALL_CHECKS:
+            passed, errors = check(
+                investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+            )
+            if not passed:
+                failing.append((check.__name__, errors))
+        return len(failing) == 0, failing
+
+    @pytest.mark.parametrize(
+        "pkg_name,expected_check",
+        [
+            ("duplicate-id", "run_id_validation"),
+            ("broken-reference", "run_reference_validation"),
+            ("orphan-evidence", "run_orphan_validation"),
+            ("missing-provenance", "run_provenance_validation"),
+            ("bad-id-format", "run_id_validation"),
+        ],
+    )
+    def test_invalid_fixture_rejected(self, pkg_name, expected_check):
+        pkg = FIXTURES / "invalid" / pkg_name
+        assert pkg.exists(), f"Missing invalid fixture: {pkg_name}"
+        all_pass, failing = self._all_checks_pass(pkg)
+        assert not all_pass, f"invalid/{pkg_name} was not rejected by any check"
+        failing_names = [name for name, _ in failing]
+        assert expected_check in failing_names, (
+            f"invalid/{pkg_name} should be rejected by {expected_check}, "
+            f"was rejected by {failing_names}"
+        )

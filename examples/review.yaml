@@ -3,6 +3,7 @@
 # See schema/review.schema.json for the full schema.
 
 id: "boe:review:01HV8QKJZ9XTMK3P2R7N5W6D4P"
+version_id: "01HVV000000000000000000013"          # Immutable per-version ID; the entity id above is stable across versions
 type: "review"
 subject_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
 subject_type: "investigation"
@@ -43,10 +44,10 @@ response:
   response_text: >
     Accepted. Will revise the claim statement to clarify the distinction between
     the CIA program start (1953) and FBI participation start (1958). Revision
-    created as boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4O.
+    created as boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4W.
   responded_at: "2026-08-04T00:00:00Z"
 
-resolved_by_revision_id: "boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4O"
+resolved_by_revision_id: "boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4W"
 
 created_at: "2026-08-04T00:00:00Z"
 resolved_at: "2026-08-04T00:00:00Z"

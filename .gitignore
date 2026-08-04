@@ -58,3 +58,6 @@ htmlcov/
 # Validation reports (generated, not source)
 validation-report.json
 validation-report.txt
+
+# Sandbox delete workaround — this file is removed from tracking; delete manually
+.trash-init-repo.command
