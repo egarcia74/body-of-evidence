@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to seventh-pass review (2026-08-05, D-021)
+
+- References must now resolve against each package's manifest CURRENT-entity map, not merely against "a file with this id exists somewhere in the package" — manifests are parsed before ordinary reference validation runs; a reference to an unmanifested/superseded entity now fails with `REF_NOT_CURRENT`
+- `NESTED_REFERENCE_FIELDS` is now executable (generic runtime traversal), not just descriptive metadata for a completeness test — the previously-hardcoded `review.specific_concerns` loop is gone; a new behavioural test dangles every registry entry, flat and nested, and asserts each one is actually checked
+- Symlink rejection now covers every filesystem entry in a package (directories, non-YAML files), not only `*.yaml`/`*.yml` files — `boe_files.find_all_symlinks` replaces the narrower scan; diagnostic code renamed `ENTITY_FILE_SYMLINK` -> `PACKAGE_SYMLINK`
+- `validate.py`'s investigation-path enumeration now catches `OSError` (e.g. an unreadable directory) and reports a diagnostic instead of a traceback
+- 49 tests (was 44)
+
 ### Changed — response to sixth-pass review (2026-08-05, D-020)
 
 - `id_index` is now a multimap (stable id -> list of owning files/packages), not a lossy single-owner map; a reference resolvable within the referencing entity's own package is preferred over a same-id entry in another package, fixing a false-positive `REF_WRONG_PACKAGE` the D-019 test fixture itself was producing

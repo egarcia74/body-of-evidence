@@ -157,16 +157,24 @@ def main():
             print(f"ERROR: --root '{investigations_dir}' is not a directory")
             sys.exit(1)
 
-    if args.investigation:
-        investigation_paths = [investigations_dir / args.investigation]
-        if not investigation_paths[0].exists():
-            print(f"ERROR: Investigation '{args.investigation}' not found")
-            sys.exit(1)
-    else:
-        investigation_paths = sorted(
-            p for p in investigations_dir.iterdir()
-            if p.is_dir() and not p.name.startswith("_")
-        )
+    # Enumeration itself can still fail (e.g. an unreadable directory raises
+    # PermissionError) even after the existence/type checks above — that
+    # must also become a diagnostic, not a traceback (seventh-pass review
+    # M-21, the same principle as M-18 one level down).
+    try:
+        if args.investigation:
+            investigation_paths = [investigations_dir / args.investigation]
+            if not investigation_paths[0].exists():
+                print(f"ERROR: Investigation '{args.investigation}' not found")
+                sys.exit(1)
+        else:
+            investigation_paths = sorted(
+                p for p in investigations_dir.iterdir()
+                if p.is_dir() and not p.name.startswith("_")
+            )
+    except OSError as e:
+        print(f"ERROR: Could not enumerate '{investigations_dir}': {e}")
+        sys.exit(1)
 
     checks = CHECKS if args.check == "all" else {args.check: CHECKS[args.check]}
 

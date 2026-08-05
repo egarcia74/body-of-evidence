@@ -2,32 +2,42 @@
 """
 Body of Evidence — Reference Validation
 
-Checks that every ID referenced in any entity resolves to an existing entity
-of the EXPECTED TYPE and the SAME PACKAGE, and that package manifests are
-consistent with the entity files they list.
+Checks that every ID referenced in any entity resolves to the CURRENT
+version of an entity of the EXPECTED TYPE, owned by the SAME PACKAGE, and
+that package manifests are consistent with the entity files they list.
 
 Package scoping (fifth-pass review finding H-02c): investigation packages
 are meant to be self-contained. By default, EVERY reference below must
 resolve to an entity owned by the referencing entity's own package —
 cross-package references are rejected, not just tolerated with a warning.
 There is deliberately no way yet to declare "package A depends on package
-B" — that is future work (see DECISIONS.md D-019/D-020); until it exists,
-any reference that crosses a package boundary is a defect, whether
-accidental (a copy-pasted id) or adversarial (a package claiming another
-package's entities as its own).
+B" — that is future work (see DECISIONS.md D-019/D-020/D-021); until it
+exists, any reference that crosses a package boundary is a defect.
 
-REFERENCE_FIELDS below is the single declarative source of truth for every
-schema-defined reference field (sixth-pass review H-18) — it drives both
-validate_references_in_file AND tests/test_validation.py's schema
-completeness check, so a new reference field added to a schema without a
-matching registry entry fails a test instead of silently validating
-nothing.
+Manifest currency (seventh-pass review finding H-20): a stable id existing
+as SOME file in the package is not enough — it must be the package
+manifest's CURRENT version of that id. Historical/superseded version files
+are legitimately unmanifested by design (D-009); a link, assessment, or
+revision that references one of them is referencing something the release
+does not actually contain. Manifests are therefore parsed BEFORE ordinary
+reference validation runs, and check_ref resolves against each package's
+current-entity map, not merely against "does a file with this id exist
+somewhere in the package."
+
+REFERENCE_FIELDS / NESTED_REFERENCE_FIELDS below are the single declarative
+source of truth for every schema-defined reference field (sixth-pass review
+H-18) — they drive validate_references_in_file AT RUNTIME (seventh-pass
+review M-19 closed the gap where NESTED_REFERENCE_FIELDS existed only for
+tests/test_validation.py's completeness check but had no executable effect)
+AND that same completeness check, so a new reference field added to a
+schema without a matching registry entry fails a test instead of silently
+validating nothing.
 """
 
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import Diagnostic, iter_entities, find_manifest, find_symlinked_entity_paths, load_yaml
+from boe_files import Diagnostic, iter_entities, find_manifest, find_all_symlinks, load_yaml
 
 VALIDATOR = "references"
 
@@ -100,12 +110,26 @@ REFERENCE_FIELDS: dict[str, list[tuple[str, bool, str | None]]] = {
 }
 
 # Reference fields nested inside an array-of-objects property, not
-# expressible as a flat (field, is_list, want_type) tuple. Path uses the
-# same '[]' convention as the schema-completeness scanner in
-# tests/test_validation.py so the two can be compared directly.
-NESTED_REFERENCE_FIELDS: dict[str, list[str]] = {
-    "review": ["specific_concerns[].referenced_entity_id"],
+# expressible as a flat (field, is_list, want_type) tuple: entity_type ->
+# [(array_field, item_field, want_type_or_None), ...]. Unlike the fifth/
+# sixth-pass version of this registry, these entries are executable —
+# validate_references_in_file traverses them generically at runtime
+# (seventh-pass review M-19); they are not merely descriptive metadata for
+# the completeness test.
+NESTED_REFERENCE_FIELDS: dict[str, list[tuple[str, str, str | None]]] = {
+    "review": [("specific_concerns", "referenced_entity_id", None)],
 }
+
+
+def nested_field_schema_paths() -> dict[str, set[str]]:
+    """NESTED_REFERENCE_FIELDS rendered as 'array[].item' path strings —
+    the same shape tests/test_validation.py's schema-completeness scanner
+    produces — so the two can be compared directly without the test module
+    needing to know the executable tuple shape."""
+    return {
+        entity_type: {f"{array_field}[].{item_field}" for array_field, item_field, _ in entries}
+        for entity_type, entries in NESTED_REFERENCE_FIELDS.items()
+    }
 
 
 def _err(code: str, path, message: str, location: str = "") -> Diagnostic:
@@ -119,7 +143,8 @@ def expected_type(ref_id: str) -> str:
 
 
 def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
-              want_type: str | None = None, entity_package: Path | None = None):
+              want_type: str | None = None, entity_package: Path | None = None,
+              current_maps: dict[Path, dict] | None = None):
     """
     Check one reference. `field` is the location (JSON-pointer-ish, e.g.
     'claim_id' or 'link_ids[2]') — carried on every diagnostic so tests and
@@ -128,13 +153,15 @@ def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
     `id_index[ref_id]` is a LIST of every entity file declaring that stable
     id — a stable id can legitimately appear in more than one file (D-009
     intra-package version history) and, before an explicit dependency
-    mechanism exists, can also collide across packages. Resolving to
-    whichever entry happened to be indexed last (sixth-pass review H-17)
-    produced false positives: a reference resolvable LOCALLY, within the
-    referencing entity's own package, was reported as cross-package simply
-    because some other package's entry was indexed later. This prefers a
+    mechanism exists, can also collide across packages. This prefers a
     same-package match when one exists, and only reports REF_WRONG_PACKAGE
-    when NO same-package entry exists at all.
+    when NO same-package entry exists at all (sixth-pass review H-17).
+
+    `current_maps[entity_package]` is that package's manifest current-entity
+    map (id -> current version_id). A reference resolving to SOME file in
+    the right package is not enough — it must be the package's CURRENT
+    version of that id, or the reference points at something the release
+    does not actually contain (seventh-pass review H-20).
     """
     if not ref_id:
         return
@@ -160,30 +187,56 @@ def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
                 f"explicit dependency declaration (not yet supported)",
                 field,
             ))
+        return  # Nothing meaningful to say about currency in the wrong package.
+
+    if entity_package is not None and current_maps is not None:
+        current_map = current_maps.get(entity_package, {})
+        if ref_id not in current_map:
+            errors.append(_err(
+                "REF_NOT_CURRENT", path,
+                f"{ctx}: Referenced ID '{ref_id}' exists in this package but "
+                f"is not the CURRENT version per the package manifest — "
+                f"historical/superseded versions are not part of the "
+                f"released graph",
+                field,
+            ))
 
 
 def check_ref_list(ref_ids, id_index, path, field: str, errors,
-                    want_type=None, entity_package: Path | None = None):
+                    want_type=None, entity_package: Path | None = None,
+                    current_maps: dict[Path, dict] | None = None):
     for idx, ref_id in enumerate(ref_ids or []):
-        check_ref(ref_id, id_index, path, f"{field}[{idx}]", errors, want_type, entity_package)
+        check_ref(ref_id, id_index, path, f"{field}[{idx}]", errors, want_type, entity_package, current_maps)
 
 
 def validate_references_in_file(
-    yaml_file: Path, data: dict, id_index: dict, entity_package: Path | None
+    yaml_file: Path, data: dict, id_index: dict, entity_package: Path | None,
+    current_maps: dict[Path, dict] | None = None,
 ) -> list[Diagnostic]:
     errors = []
     t = data.get("type", "unknown")
 
     def ref(field, ref_id, want_type=None):
-        check_ref(ref_id, id_index, yaml_file, field, errors, want_type, entity_package)
+        check_ref(ref_id, id_index, yaml_file, field, errors, want_type, entity_package, current_maps)
 
     def ref_list(field, ref_ids, want_type=None):
-        check_ref_list(ref_ids, id_index, yaml_file, field, errors, want_type, entity_package)
+        check_ref_list(ref_ids, id_index, yaml_file, field, errors, want_type, entity_package, current_maps)
 
     for field, is_list, want_type in REFERENCE_FIELDS.get(t, []):
         (ref_list if is_list else ref)(field, data.get(field), want_type)
 
-    # Polymorphic / nested cases not expressible as a flat registry entry:
+    # Nested (array-of-object) reference fields, driven generically by
+    # NESTED_REFERENCE_FIELDS (seventh-pass review M-19 — this used to be a
+    # hardcoded review.specific_concerns loop with no connection to the
+    # registry a completeness test claimed was authoritative).
+    for array_field, item_field, want_type in NESTED_REFERENCE_FIELDS.get(t, []):
+        for idx, item in enumerate(data.get(array_field) or []):
+            ref_id = item.get(item_field) if isinstance(item, dict) else None
+            ref(f"{array_field}[{idx}].{item_field}", ref_id, want_type)
+
+    # Polymorphic type-discriminator cases: these cross-check a SIBLING
+    # field, not just resolve a reference, so they aren't expressible as a
+    # registry entry.
     if t == "relationship":
         for end, type_field in (("from_id", "from_type"), ("to_id", "to_type")):
             ref_id = data.get(end)
@@ -206,9 +259,6 @@ def validate_references_in_file(
                 f"'{subject_type}'",
                 "subject_id",
             ))
-        for idx, concern in enumerate(data.get("specific_concerns") or []):
-            ref_id = concern.get("referenced_entity_id") if isinstance(concern, dict) else None
-            ref(f"specific_concerns[{idx}].referenced_entity_id", ref_id)
 
     return errors
 
@@ -228,8 +278,9 @@ def _path_is_contained(path_str: str) -> bool:
 def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str] | None:
     """
     Two independent checks, both enforced (fourth-pass review M-11), for
-    MANIFEST-LISTED paths specifically (unmanifested-file symlinks are
-    caught separately — see find_symlinked_entity_paths and H-19 below):
+    MANIFEST-LISTED paths specifically (unmanifested-file / non-YAML /
+    directory symlinks are caught separately — see boe_files.find_all_symlinks
+    and H-19/M-20 below):
 
     1. No path component between the package root and the entity file may
        itself be a symlink.
@@ -284,8 +335,8 @@ def validate_manifest(inv_path: Path, id_index: dict, version_index: dict):
       Investigation has no defined subject)
 
     Returns (errors, current_map) where current_map maps entity id ->
-    current version_id per this manifest. current_map is used by revision
-    transition validation.
+    current version_id per this manifest. current_map is used by ordinary
+    reference validation (H-20) AND revision transition validation.
     """
     manifest_path = find_manifest(inv_path)
     if manifest_path is None:
@@ -425,7 +476,12 @@ def validate_revision_transition(
     - both endpoint files are owned by the package containing this Revision
     - the OLD version is not listed as current in the package manifest
     Note: the NEW version is deliberately not required to be current —
-    revision chains (v1→v2, v2→v3) keep intermediate revisions valid.
+    revision chains (v1→v2, v2→v3) keep intermediate revisions valid. This
+    is why revision endpoints are checked against version_index directly
+    rather than through check_ref's H-20 currency rule, which is specific
+    to stable-id references like entity_id (checked separately, in
+    validate_references_in_file, and which DOES require the entity concept
+    itself to currently exist).
     """
     errors = []
     ctx = str(yaml_file)
@@ -515,20 +571,20 @@ def run_reference_validation(
             continue
         real_investigation_paths.append(inv_path)
 
-    # A symlinked entity file OR manifest is likewise rejected outright,
-    # even when it isn't listed in package.yaml — historical/superseded
-    # version files are legitimately unmanifested by design (D-009), so
-    # the manifest-path containment check alone cannot see them
-    # (sixth-pass review H-19). boe_files already refuses to read these;
-    # this reports the precise cause instead of the package silently
-    # appearing to have fewer files than it does.
-    for symlinked in find_symlinked_entity_paths(real_investigation_paths):
+    # ANY symlink anywhere inside a package is rejected outright — a file,
+    # a directory, any extension, manifested or not (sixth-pass H-19,
+    # broadened by seventh-pass M-20: the narrower YAML-only scan missed
+    # symlinked subdirectories and non-YAML symlinks). boe_files already
+    # refuses to read through these; this reports the precise cause instead
+    # of the package silently appearing to have fewer entries than it does.
+    for symlinked in find_all_symlinks(real_investigation_paths):
         all_errors.append(_err(
-            "ENTITY_FILE_SYMLINK", symlinked,
-            f"{symlinked}: entity file is a symlink — symlinked entity "
-            f"files are prohibited everywhere in a package, including "
-            f"unmanifested historical versions (they can read content "
-            f"from outside the package, or crash validation if broken)"
+            "PACKAGE_SYMLINK", symlinked,
+            f"{symlinked}: symlink found inside a package — symlinks are "
+            f"prohibited anywhere in a package, including unmanifested "
+            f"historical versions, subdirectories, and non-YAML files "
+            f"(they can indirect to content outside the package, or crash "
+            f"validation if broken)"
         ))
 
     # Pass 1: index all defined IDs and versions. id_index is a MULTIMAP —
@@ -553,20 +609,27 @@ def run_reference_validation(
     if verbose:
         print(f"    Indexed {len(id_index)} entity IDs, {len(version_index)} versions")
 
-    # Pass 2: cross-entity references, package-scoped by default (H-02c),
-    # covering every schema-declared reference field (H-18 — see
-    # REFERENCE_FIELDS at module scope).
+    # Pass 2: manifests are parsed BEFORE ordinary reference validation
+    # (seventh-pass review H-20) — a reference must resolve against each
+    # package's CURRENT membership, not merely against "a file with this
+    # id exists somewhere in the package", so current_maps must exist
+    # before Pass 3 runs.
+    current_maps: dict[Path, dict] = {}
+    for inv_path in real_investigation_paths:
+        manifest_errors, current_map = validate_manifest(inv_path, id_index, version_index)
+        current_maps[inv_path] = current_map
+        all_errors.extend(manifest_errors)
+
+    # Pass 3: cross-entity references, package-scoped (H-02c) and
+    # manifest-current-scoped (H-20) by default, covering every
+    # schema-declared reference field (H-18/M-19).
     for path, data in entities:
         entity_package = _owning_package(path, real_investigation_paths)
-        all_errors.extend(validate_references_in_file(path, data, id_index, entity_package))
+        all_errors.extend(validate_references_in_file(path, data, id_index, entity_package, current_maps))
 
-    # Pass 3: per-package — manifests (mandatory, the release authority),
-    # then revision transitions against that package's current map
+    # Pass 4: revision transitions against each package's current map.
     for inv_path in real_investigation_paths:
-        manifest_errors, current_map = validate_manifest(
-            inv_path, id_index, version_index
-        )
-        all_errors.extend(manifest_errors)
+        current_map = current_maps[inv_path]
         for path, data in entities:
             if data.get("type") != "revision":
                 continue

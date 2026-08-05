@@ -250,7 +250,7 @@ class TestInvalidFixtures:
                 # picking one and hiding the rest:
                 # - MANIFEST_PATH_SYMLINK: the manifest-listed path check
                 #   (fourth-pass M-11) catches it as a LISTED entry.
-                # - ENTITY_FILE_SYMLINK: sixth-pass H-19's unconditional
+                # - PACKAGE_SYMLINK: sixth-pass H-19's unconditional
                 #   discovery-level check ALSO independently catches it —
                 #   this is deliberately redundant with the check above;
                 #   H-19 exists specifically because a symlinked file might
@@ -262,7 +262,7 @@ class TestInvalidFixtures:
                 #   symlinked path, so the manifest also has no accepted
                 #   Investigation (the case the fourth-pass review flagged
                 #   as silently tolerated by the old substring-only test).
-                ("references", "ENTITY_FILE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
+                ("references", "PACKAGE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
                 ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-symlink-escape/package.yaml", ""),
                 ("references", "MANIFEST_PATH_SYMLINK", "fixtures/invalid/manifest-symlink-escape/package.yaml", "escape.yaml"),
             ]),
@@ -283,15 +283,39 @@ class TestInvalidFixtures:
                 # construction — it only inspects listed paths — which is
                 # exactly why H-19 required an unconditional discovery-level
                 # check independent of the manifest.
-                ("references", "ENTITY_FILE_SYMLINK",
+                ("references", "PACKAGE_SYMLINK",
                  "fixtures/invalid/unmanifested-symlink/claim-unlisted-symlink.yaml", ""),
             ]),
             ("broken-unmanifested-symlink", [
                 # Same as above, but the symlink target doesn't exist. Must
                 # produce this diagnostic, not an uncaught FileNotFoundError
                 # crashing the whole run (sixth-pass review H-19).
-                ("references", "ENTITY_FILE_SYMLINK",
+                ("references", "PACKAGE_SYMLINK",
                  "fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml", ""),
+            ]),
+            ("symlinked-subdirectory", [
+                # seventh-pass review M-20: the sixth-pass symlink scan only
+                # looked at *.yaml/*.yml files, so a symlinked SUBDIRECTORY
+                # (aliased-claims -> .../harbour-tender-inquiry/claims) was
+                # invisible to it — rglob doesn't currently follow a
+                # symlinked directory in this pathlib version, so nothing
+                # inside it is actually read, but the symlink itself went
+                # completely undetected. find_all_symlinks walks with
+                # os.walk(followlinks=False), which lists but never
+                # descends into it, so the symlink is now reported without
+                # ever reading through it.
+                ("references", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/symlinked-subdirectory/aliased-claims", ""),
+            ]),
+            ("reference-not-current", [
+                # H-20 (seventh-pass review): claim-uncurrent.yaml exists as
+                # a file and is schema/id valid, but package.yaml does NOT
+                # list it — link.yaml's claim_id reference must be rejected
+                # because "a file with this id exists in the package" is
+                # not the same guarantee as "the release's manifest
+                # contains this id as its current version."
+                ("references", "REF_NOT_CURRENT",
+                 "fixtures/invalid/reference-not-current/link.yaml", "claim_id"),
             ]),
         ],
     )
@@ -454,7 +478,7 @@ class TestReferenceRegistryCompleteness:
         registered: dict[str, set[str]] = {}
         for entity_type, fields in vr.REFERENCE_FIELDS.items():
             registered[entity_type] = {field for field, _, _ in fields}
-        for entity_type, paths in vr.NESTED_REFERENCE_FIELDS.items():
+        for entity_type, paths in vr.nested_field_schema_paths().items():
             registered.setdefault(entity_type, set()).update(paths)
 
         missing = {}
@@ -490,9 +514,74 @@ class TestReferenceRegistryCompleteness:
                 schema = json.load(f)
             found = _reference_shaped_field_paths(schema)
             registered = {field for field, _, _ in vr.REFERENCE_FIELDS.get(entity_type, [])}
-            registered |= set(vr.NESTED_REFERENCE_FIELDS.get(entity_type, []))
+            registered |= vr.nested_field_schema_paths().get(entity_type, set())
             stale = registered - found
             assert not stale, f"{entity_type}: registry entries with no matching schema field: {stale}"
+
+    def test_every_registered_field_actually_validates_when_dangling(self):
+        """M-19 (seventh-pass review): NESTED_REFERENCE_FIELDS previously
+        existed only to satisfy the completeness tests above — nothing at
+        RUNTIME actually consumed it, since review.specific_concerns was a
+        hardcoded loop with no connection to the registry. A future nested
+        field could be added to both a schema and the registry, make the
+        completeness test pass, and still never be checked — completeness
+        (the field is LISTED) is not the same guarantee as correctness
+        (the field is CHECKED). This constructs a synthetic dangling
+        reference for every REFERENCE_FIELDS and NESTED_REFERENCE_FIELDS
+        entry and asserts each one actually produces REF_NOT_FOUND."""
+        import validate_references as vr
+
+        FAKE_ID = "boe:nonexistent:01JF0000000000000000000000"
+
+        for entity_type, fields in vr.REFERENCE_FIELDS.items():
+            for field, is_list, _want_type in fields:
+                data = {"type": entity_type, field: [FAKE_ID] if is_list else FAKE_ID}
+                errors = vr.validate_references_in_file(
+                    Path(f"synthetic-{entity_type}.yaml"), data, id_index={}, entity_package=None
+                )
+                codes = [(e.code, e.location) for e in errors]
+                expected_location = f"{field}[0]" if is_list else field
+                assert ("REF_NOT_FOUND", expected_location) in codes, (
+                    f"{entity_type}.{field}: registered but a dangling value "
+                    f"produced no REF_NOT_FOUND (got {codes}) — this registry "
+                    f"entry is not actually executed"
+                )
+
+        for entity_type, nested_fields in vr.NESTED_REFERENCE_FIELDS.items():
+            for array_field, item_field, _want_type in nested_fields:
+                data = {"type": entity_type, array_field: [{item_field: FAKE_ID}]}
+                errors = vr.validate_references_in_file(
+                    Path(f"synthetic-{entity_type}.yaml"), data, id_index={}, entity_package=None
+                )
+                codes = [(e.code, e.location) for e in errors]
+                expected_location = f"{array_field}[0].{item_field}"
+                assert ("REF_NOT_FOUND", expected_location) in codes, (
+                    f"{entity_type}.{array_field}[].{item_field}: registered but "
+                    f"a dangling value produced no REF_NOT_FOUND (got {codes}) — "
+                    f"this nested registry entry is not actually executed"
+                )
+
+
+class TestManifestCurrencyRequired:
+    """H-20 (seventh-pass review): a reference resolving to SOME file with
+    the right stable id in the right package is not enough — it must be
+    that package's manifest's CURRENT version of that id. Covered as a
+    self-test fixture too (fixtures/invalid/reference-not-current), but
+    the valid fixture's positive case (a reference to something that IS
+    current must still pass) is worth asserting directly since it's the
+    same code path that could over-reject."""
+
+    def test_valid_fixture_references_remain_accepted(self):
+        """Regression guard: the valid fixture's links/assessments/revision
+        reference the CURRENT claim version — H-20 must not turn every
+        ordinary, correct reference into a false REF_NOT_CURRENT."""
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        passed, errors = run_reference_validation(
+            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+        )
+        not_current = [e for e in errors if e.code == "REF_NOT_CURRENT"]
+        assert not not_current, f"Valid fixture's current references were rejected: {not_current}"
+        assert passed, f"Valid fixture unexpectedly failed references: {[str(e) for e in errors]}"
 
 
 class TestSymlinkedPackageRoot:
@@ -544,11 +633,11 @@ class TestUnmanifestedEntitySymlinks:
             f"find_entity_files must not read a symlinked entity file, got: {files}"
         )
 
-    def test_find_symlinked_entity_paths_reports_it(self):
+    def test_find_all_symlinks_reports_it(self):
         import boe_files
         pkg = FIXTURES / "invalid" / "unmanifested-symlink"
         symlink = pkg / "claim-unlisted-symlink.yaml"
-        assert boe_files.find_symlinked_entity_paths([pkg]) == [symlink]
+        assert boe_files.find_all_symlinks([pkg]) == [symlink]
 
     def test_broken_symlink_does_not_crash_discovery(self):
         """The specific defect the reviewer demonstrated: a dangling
@@ -560,7 +649,7 @@ class TestUnmanifestedEntitySymlinks:
         # Must not raise:
         files = boe_files.find_entity_files([pkg])
         assert broken not in files
-        assert boe_files.find_symlinked_entity_paths([pkg]) == [broken]
+        assert boe_files.find_all_symlinks([pkg]) == [broken]
 
     def test_load_yaml_reports_broken_symlink_as_diagnostic_not_crash(self):
         """Backstop test for load_yaml itself (independent of discovery
@@ -655,3 +744,22 @@ class TestCliMultiPackageDiscovery:
         assert result.returncode != 0
         assert "Traceback" not in result.stderr, f"CLI crashed instead of reporting a diagnostic:\n{result.stderr}"
         assert "symlink" in result.stdout.lower()
+
+    def test_cli_reports_unreadable_root_without_traceback(self, tmp_path):
+        """M-21 (seventh-pass review): --root's existence/type/symlink
+        checks (M-18) all pass for an unreadable directory — the crash
+        happened one step later, at iterdir() itself, which raises
+        PermissionError. That enumeration failure must also become a
+        diagnostic."""
+        unreadable = tmp_path / "no-access"
+        unreadable.mkdir()
+        (unreadable / "harbour-tender-inquiry").mkdir()
+        unreadable.chmod(0o000)
+        try:
+            result = self._run_cli(unreadable)
+        finally:
+            unreadable.chmod(0o755)  # restore so pytest can clean up tmp_path
+        if result.returncode == 0:
+            pytest.skip("Directory permissions did not block enumeration in this environment (e.g. running as root)")
+        assert "Traceback" not in result.stderr, f"CLI crashed instead of reporting a diagnostic:\n{result.stderr}"
+        assert "could not enumerate" in result.stdout.lower()

@@ -1,0 +1,11 @@
+# INVALID FIXTURE — references claim-uncurrent.yaml's stable id, which
+# exists as a file but is not the manifest's CURRENT version of that id.
+id: "boe:claim_evidence_link:01JF0000000000000000001005"
+version_id: "01JFV000000000000000001005"
+type: "claim_evidence_link"
+claim_id: "boe:claim:01JF0000000000000000001004"
+evidence_id: "boe:evidence:01JF0000000000000000001003"
+polarity: "supports"
+strength: "direct"
+reasoning: "Fixture reasoning."
+created_at: "2026-08-04T00:00:00Z"

@@ -1,0 +1,14 @@
+# INVALID FIXTURE support file — valid on its own.
+id: "boe:investigation:01JF0000000000000000001101"
+version_id: "01JFV000000000000000001101"
+type: "investigation"
+title: "Fixture: symlinked subdirectory"
+slug: "symlinked-subdirectory"
+status: "draft"
+scope:
+  description: "Fixture proving a symlinked SUBDIRECTORY inside a package is rejected, not silently invisible (M-20)."
+lead_investigator:
+  identifier: "fixture-investigator"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+created_at: "2026-08-04T00:00:00Z"

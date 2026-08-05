@@ -7,6 +7,7 @@ treated identically everywhere. (A .yml file that bypasses semantic
 validation is a validation hole.)
 """
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Tuple, Optional
@@ -59,9 +60,8 @@ def find_entity_files(investigation_paths: list[Path]) -> list[Path]:
     containment check, which only inspects listed paths. A symlinked
     unmanifested file would otherwise let validation silently read content
     from outside the package (or crash on a broken symlink; see
-    load_yaml's OSError handling). See also
-    validate_references.find_symlinked_entity_paths, which turns this
-    silent exclusion into an explicit diagnostic.
+    load_yaml's OSError handling). See also find_all_symlinks, which turns
+    this silent exclusion into an explicit diagnostic.
     """
     files = []
     for inv_path in investigation_paths:
@@ -90,13 +90,29 @@ def find_manifest(investigation_path: Path) -> Optional[Path]:
     return manifest if manifest.exists() else None
 
 
-def find_symlinked_entity_paths(investigation_paths: list[Path]) -> list[Path]:
+def find_all_symlinks(investigation_paths: list[Path]) -> list[Path]:
     """
-    Every YAML file (entity file OR package.yaml manifest) that was
-    excluded from find_entity_files / find_manifest because it is itself a
-    symlink — surfaced separately so a validator can turn that silent
-    exclusion into an explicit diagnostic (sixth-pass review H-19) instead
-    of the package simply appearing to have fewer files than it does.
+    Every symlink anywhere inside a package — any file, any directory, any
+    extension, manifested or not. Surfaced separately so a validator can
+    turn silent exclusion into an explicit diagnostic instead of the
+    package simply appearing to have fewer files than it does.
+
+    This supersedes an earlier version that only scanned *.yaml/*.yml files
+    (sixth-pass review H-19); the seventh-pass review found that a
+    symlinked SUBDIRECTORY, or a symlink to a non-YAML file, was invisible
+    to that narrower scan — `find_entity_files`'s rglob doesn't currently
+    follow a symlinked directory in this pathlib version (so nothing
+    inside one is actually READ), but the symlink itself went completely
+    undetected, which is still a policy violation: a future tool with
+    different traversal behaviour (a generator, an MCP server) could read
+    through it, and "the validator happens not to look" is not the same
+    guarantee as "the package contains no symlinks" (seventh-pass M-20).
+
+    Uses os.walk(followlinks=False) rather than pathlib globbing so
+    detection does not depend on a particular pathlib version's symlink
+    traversal behaviour: os.walk lists a symlinked directory in `dirnames`
+    (so it's still detected) but never descends into it.
+
     Symlinked package ROOTS are not included here; those are reported
     separately (see run_reference_validation's INVESTIGATION_ROOT_SYMLINK).
     """
@@ -104,8 +120,12 @@ def find_symlinked_entity_paths(investigation_paths: list[Path]) -> list[Path]:
     for inv_path in investigation_paths:
         if inv_path.is_symlink():
             continue
-        for pattern in ("*.yaml", "*.yml"):
-            found.extend(p for p in inv_path.rglob(pattern) if p.is_symlink())
+        for dirpath, dirnames, filenames in os.walk(inv_path, followlinks=False):
+            base = Path(dirpath)
+            for name in (*dirnames, *filenames):
+                candidate = base / name
+                if candidate.is_symlink():
+                    found.append(candidate)
     return sorted(found)
 
 

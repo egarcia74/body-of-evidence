@@ -1,0 +1,9 @@
+# INVALID FIXTURE support file — valid on its own, and manifested/current.
+id: "boe:evidence:01JF0000000000000000001003"
+version_id: "01JFV000000000000000001003"
+type: "evidence"
+source_id: "boe:source:01JF0000000000000000001002"
+description: "Fixture evidence extraction."
+quote: "Fixture quote."
+location: "Fixture location"
+created_at: "2026-08-04T00:00:00Z"

@@ -1,0 +1,11 @@
+# INVALID FIXTURE — deliberately NOT listed in package.yaml. Valid on its
+# own and present in the package directory, but not part of the released
+# graph — proves a reference to it must be rejected (H-20), not merely
+# checked for existence-as-a-file.
+id: "boe:claim:01JF0000000000000000001004"
+version_id: "01JFV000000000000000001004"
+type: "claim"
+investigation_id: "boe:investigation:01JF0000000000000000001001"
+status: "draft"
+statement: "Fixture claim that the manifest deliberately does not list as current."
+created_at: "2026-08-04T00:00:00Z"
