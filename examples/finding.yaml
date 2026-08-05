@@ -3,7 +3,7 @@
 # See schema/finding.schema.json for the full schema.
 
 id: "boe:finding:01HV8QKJZ9XTMK3P2R7N5W6D4K"
-version_id: "01HVV000000000000000000006"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000006"  # per-version ID; the id above is stable across versions
 type: "finding"
 investigation_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
 status: "published"

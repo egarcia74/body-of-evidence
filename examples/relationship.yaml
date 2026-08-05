@@ -3,7 +3,7 @@
 # See schema/relationship.schema.json for the full schema.
 
 id: "boe:relationship:01HV8QKJZ9XTMK3P2R7N5W6D4Q"
-version_id: "01HVV000000000000000000011"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000011"  # per-version ID; the id above is stable across versions
 type: "relationship"
 
 from_id: "boe:person:01HV8QKJZ9XTMK3P2R7N5W6D4X"   # Frank Church

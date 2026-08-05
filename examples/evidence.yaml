@@ -3,7 +3,7 @@
 # See schema/evidence.schema.json for the full schema.
 
 id: "boe:evidence:01HV8QKJZ9XTMK3P2R7N5W6D4H"
-version_id: "01HVV000000000000000000004"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000004"  # per-version ID; the id above is stable across versions
 type: "evidence"
 source_id: "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
 

@@ -3,7 +3,7 @@
 # See schema/event.schema.json for the full schema.
 
 id: "boe:event:01HV8QKJZ9XTMK3P2R7N5W6D4N"
-version_id: "01HVV000000000000000000009"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000009"  # per-version ID; the id above is stable across versions
 type: "event"
 title: "Church Committee established by Senate Resolution 21"
 date: "1975-01-27"

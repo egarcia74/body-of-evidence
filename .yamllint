@@ -1,0 +1,32 @@
+# Body of Evidence — YAML lint policy
+#
+# Deliberately scoped: rules here protect data integrity and diff hygiene.
+# Purely stylistic rules are disabled so the gate stays meaningfully green —
+# a permanently red quality gate is worse than no gate.
+
+extends: default
+
+rules:
+  # Integrity-relevant: keep as errors
+  key-duplicates: enable
+  trailing-spaces: enable
+  new-line-at-end-of-file: enable
+
+  # Long prose fields and URLs make hard line caps impractical
+  line-length:
+    max: 120
+    level: warning
+
+  # Entity files are single-document by design; requiring '---' adds noise
+  document-start: disable
+
+  # Comment alignment in annotated examples is intentional
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+
+  # Quoting style in examples is deliberate (quoted IDs, unquoted scalars)
+  quoted-strings: disable
+
+  truthy:
+    allowed-values: ["true", "false"]

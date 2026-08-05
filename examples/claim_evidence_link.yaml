@@ -5,7 +5,7 @@
 # See schema/claim_evidence_link.schema.json for the full schema.
 
 id: "boe:claim_evidence_link:01HV8QKJZ9XTMK3P2R7N5W6D4S"
-version_id: "01HVV000000000000000000014"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000014"  # per-version ID; the id above is stable across versions
 type: "claim_evidence_link"
 
 claim_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"

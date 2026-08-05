@@ -2,7 +2,7 @@
 # See schema/organisation.schema.json for the full schema.
 
 id: "boe:organisation:01HV8QKJZ9XTMK3P2R7N5W6D4M"
-version_id: "01HVV000000000000000000008"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000008"  # per-version ID; the id above is stable across versions
 type: "organisation"
 name: "Senate Select Committee to Study Governmental Operations with Respect to Intelligence Activities"
 abbreviation: "Church Committee"

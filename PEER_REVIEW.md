@@ -30,6 +30,7 @@ Reviewers with conflicts of interest (see [ETHICS.md](ETHICS.md)) must recuse th
 Reviewers are not asked to agree with the findings. They are asked to verify:
 
 ### Methodological Compliance
+
 - [ ] All claims are falsifiable and atomic
 - [ ] All evidence traces to a named source
 - [ ] All sources have documented provenance
@@ -38,16 +39,19 @@ Reviewers are not asked to agree with the findings. They are asked to verify:
 - [ ] Claims and interpretations are clearly separated
 
 ### Entity Integrity
+
 - [ ] All IDs follow the `boe:<type>:<ulid>` format
 - [ ] No duplicate IDs
 - [ ] All referenced IDs resolve
 - [ ] No orphaned evidence (evidence not linked to a claim)
 
 ### Conflict of Interest
+
 - [ ] Lead investigator has disclosed any conflicts
 - [ ] No undisclosed relationship between the investigator and investigation subjects is apparent
 
 ### Completeness
+
 - [ ] The investigation scope is clearly stated
 - [ ] The investigation does not claim to address questions outside its scope
 - [ ] Major gaps in the evidence base are noted in the findings
@@ -78,6 +82,7 @@ A formal challenge is a `Review` entity with type `challenge`. Challenges must:
 - Not be based solely on disagreement with a conclusion
 
 The challenge process:
+
 1. Challenger files a **Claim Challenge** issue (or submits a PR with the `Review` entity)
 2. Lead investigator has 30 days to respond
 3. If the challenge is resolved between challenger and lead investigator, the outcome is documented

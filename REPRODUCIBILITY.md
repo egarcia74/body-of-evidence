@@ -13,6 +13,7 @@ This is a stronger standard than "the findings are correct." It means the reason
 ### 1. Source Availability
 
 Every source must be either:
+
 - Publicly accessible at a documented URL (with an archived copy link where possible)
 - Available via an identifiable public records request, court filing, or other formal channel
 - Documented with enough detail that another investigator can obtain the same document
@@ -26,6 +27,7 @@ The specific passage, data point, or observation extracted from each source must
 ### 3. Assessment Rationale
 
 Every `Assessment` entity includes a written rationale field. This rationale must explain specifically:
+
 - What evidence was considered
 - Why that evidence supports the claimed confidence level
 - What contradictory evidence was considered and why it did not change the assessment
@@ -64,6 +66,7 @@ Archive links are recorded in the `Source` entity's `archive_url` field.
 ## Computational Reproducibility
 
 Where an investigation includes data analysis:
+
 - The raw data must be included in the repository (or linked to a persistent source)
 - The analysis scripts must be included in `scripts/` or the investigation's directory
 - The scripts must produce the same output from the raw data without manual intervention

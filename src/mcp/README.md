@@ -6,7 +6,7 @@ This directory will contain the Body of Evidence MCP (Model Context Protocol) se
 
 ## Intended Tool Surface
 
-```
+```text
 search_claims(query, investigation?, confidence_min?)
     → Returns matching Claim entities with confidence and assessment summary
 

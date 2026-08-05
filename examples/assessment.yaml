@@ -7,7 +7,7 @@
 # See schema/assessment.schema.json for the full schema.
 
 id: "boe:assessment:01HV8QKJZ9XTMK3P2R7N5W6D4J"
-version_id: "01HVV000000000000000000005"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000005"  # per-version ID; the id above is stable across versions
 type: "assessment"
 claim_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
 status: "published"

@@ -1,12 +1,16 @@
+# NOTE: repository-code/url are placeholders until a public remote exists,
+# and authors will be completed when the maintainer team is established.
 cff-version: 1.2.0
 message: "If you use Body of Evidence in your research, please cite it using this metadata."
 type: software
 title: "Body of Evidence"
+authors:
+  - name: "The Body of Evidence Contributors"
 abstract: >
   An open-source, version-controlled evidence platform for publishing
   transparent, reproducible investigations built from primary sources.
-version: "0.1.0"
-date-released: "2026-08-04"
+version: "0.2.0-pre-alpha"
+date-released: "2026-08-05"
 license: Apache-2.0
 repository-code: "https://github.com/your-org/body-of-evidence"
 url: "https://github.com/your-org/body-of-evidence"

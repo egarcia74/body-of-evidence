@@ -3,7 +3,7 @@
 # See schema/source.schema.json for the full schema.
 
 id: "boe:source:01HV8QKJZ9XTMK3P2R7N5W6D4G"
-version_id: "01HVV000000000000000000003"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000003"  # per-version ID; the id above is stable across versions
 type: "source"
 source_type: "primary_document"             # primary_document | testimony | data | audio_video | photograph | correspondence | publication | news_report | analysis | other
 

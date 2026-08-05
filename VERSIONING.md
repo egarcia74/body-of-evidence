@@ -44,7 +44,7 @@ During the 0.x series, MINOR version bumps may include breaking schema changes. 
 
 ## Schema Versioning
 
-Each JSON Schema file includes a `$schema` reference and a `version` field. When a schema changes in a backwards-incompatible way, the schema file version is incremented and the old version is preserved at `schema/v{N}/`.
+Each JSON Schema file includes a `$schema` reference and a `version` field; all schemas in a commit form one coherent bundle version (currently 0.2.0), and package manifests declare which bundle version their entities conform to. Preservation of superseded schema bundles (planned location: `schema/v{N}/`) and a migration policy are pre-1.0 requirements that do NOT exist yet — during 0.x, schema history lives only in Git.
 
 ## Changelog
 

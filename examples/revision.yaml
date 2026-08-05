@@ -3,7 +3,7 @@
 # See schema/revision.schema.json for the full schema.
 
 id: "boe:revision:01HV8QKJZ9XTMK3P2R7N5W6D4W"
-version_id: "01HVV000000000000000000012"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000012"  # per-version ID; the id above is stable across versions
 type: "revision"
 entity_id: "boe:claim:01HV8QKJZ9XTMK3P2R7N5W6D4F"
 entity_type: "claim"

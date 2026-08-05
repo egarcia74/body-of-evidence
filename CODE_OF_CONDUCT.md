@@ -31,6 +31,7 @@ We are committed to making this platform welcoming to contributors regardless of
 Instances of unacceptable behaviour may be reported to the maintainer team (see [GOVERNANCE.md](GOVERNANCE.md) for contacts). All reports will be investigated. Maintainers are obligated to maintain confidentiality regarding the reporter.
 
 **Sanctions (in order of severity):**
+
 1. Written warning
 2. Temporary suspension from contribution
 3. Permanent ban

@@ -1,0 +1,14 @@
+# INVALID FIXTURE support file — valid on its own
+id: "boe:investigation:01JF0000000000000000000700"
+version_id: "01JFV000000000000000000700"
+type: "investigation"
+title: "Fixture: revision with unrelated endpoints"
+slug: "revision-unrelated-endpoints"
+status: "draft"
+scope:
+  description: "Fixture proving a revision cannot connect versions of different entities."
+lead_investigator:
+  identifier: "fixture-investigator"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+created_at: "2026-08-04T00:00:00Z"

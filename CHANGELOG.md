@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to third-pass review (2026-08-05, D-017)
+
+- Revision transition validation: endpoints must belong to the revised entity and match its type; superseded versions cannot remain current (rich version index replaces the lossy one — the reviewer's unrelated-endpoints probe now fails as intended)
+- Manifests must list exactly one Investigation entity matching investigation_id (the omission probe now fails as intended)
+- Manifest containment is resolved, not lexical: symlinked entity paths rejected, resolved targets must stay under the package root
+- Three new isolated invalid fixtures (revision-unrelated-endpoints, manifest-no-investigation, manifest-symlink-escape); fixture tests assert exact intended errors, not just failing-validator membership; 23 tests
+- Green hygiene baseline: trailing whitespace stripped repo-wide, deliberate documented lint policies (.markdownlint.jsonc, .yamllint) verified green locally, CI uses repo configs plus a whitespace check
+- Metadata drift reconciled: SECURITY support statement, CITATION.cff version/authors note, VERSIONING schema-preservation claim softened to planned, ROADMAP resequenced (D-016 editions before first investigations)
+
 ### Changed — response to second-pass review (2026-08-05, D-015)
 
 - FIXED the release-blocking versioning contradiction: repeated stable ids across version files now validate (that IS the model); version_ids globally unique; (id, version_id) pairs unique; one current version per id enforced on the manifest

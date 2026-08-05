@@ -25,7 +25,7 @@ It is not a website. Not a political project. Not an opinion platform. It is a s
 
 ## How It Works
 
-```
+```text
 Structured Data (YAML/JSON) → Generated Markdown → GitHub Pages → Humans
 Structured Data (YAML/JSON) → MCP Server → AI Agents
 ```
@@ -63,7 +63,7 @@ The data model does not change when a new investigation type is added.
 
 ## Repository Structure
 
-```
+```text
 body-of-evidence/
 ├── investigations/          # Per-investigation evidence data
 │   └── _template/           # Template for new investigations

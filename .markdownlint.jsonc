@@ -1,0 +1,45 @@
+{
+  // Body of Evidence — Markdown lint policy
+  //
+  // Deliberately scoped (see docs/reviews/ third pass, H-12): rules that
+  // protect readability and diff hygiene are enforced; purely stylistic
+  // rules that fight the documentation's established conventions are
+  // disabled ON PURPOSE. A permanently red gate is worse than no gate.
+  // If you tighten this config, the whole repository must pass in the
+  // same commit.
+
+  "default": true,
+
+  // Line length: prose documents use long lines intentionally
+  "MD013": false,
+
+  // Duplicate headings: CHANGELOG and DECISIONS use repeated section names
+  "MD024": false,
+
+  // Inline HTML: used in issue templates and README badges
+  "MD033": false,
+
+  // First line need not be a top-level heading (frontmatter, templates)
+  "MD041": false,
+
+  // Emphasis-as-heading: used deliberately in templates
+  "MD036": false,
+
+  // Blanks around lists/fences and fence languages: enforced
+  "MD031": true,
+  "MD032": true,
+  "MD040": true,
+
+  // Trailing spaces: enforced (also checked by git and yamllint)
+  "MD009": true,
+
+  // Bare URLs allowed in review documents
+  "MD034": false,
+
+  // Table formatting left flexible (generated and hand-written tables differ;
+  // compact |---| separators are the established convention here)
+  "MD055": false,
+  "MD056": false,
+  "MD058": false,
+  "MD060": false
+}

@@ -16,6 +16,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Context:** The platform needs a representation format for evidence data that is human-readable, version-controllable, diff-friendly, AI-parseable, and free from vendor lock-in.
 
 **Options considered:**
+
 - JSON — machine-readable but poor human readability for prose fields; noisy diffs
 - YAML — human-readable, diff-friendly, supports multi-line text naturally; widely supported
 - TOML — human-readable but weaker tooling ecosystem for validation
@@ -36,6 +37,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Context:** Every entity needs a stable, globally unique identifier. IDs must be immutable once assigned and should convey entity type.
 
 **Options considered:**
+
 - UUID v4 — universally supported but random, no time ordering, no type information
 - UUID v7 — time-ordered but still no type information
 - ULID — time-ordered, lexicographically sortable, 26-character string
@@ -56,6 +58,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Context:** Evidence quality varies. Assessments need to communicate how well-supported a claim is, in a way that is meaningful to both human readers and AI agents.
 
 **Options considered:**
+
 - Binary (supported / not supported) — too coarse; loses critical nuance
 - 3-level (strong / moderate / weak) — better but still loses too much nuance
 - 5-level (1–5 with labels) — sufficient granularity; maps well to natural language
@@ -76,6 +79,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Context:** Investigations evolve as new evidence emerges. But silent rewrites undermine trust. The platform needs to support updates while preserving history.
 
 **Options considered:**
+
 - In-place edits with Git history as the record — relies on contributors never squashing commits; not robust
 - Versioned entity files (v1, v2, etc.) — verbose; complex to query
 - Explicit `Revision` entity model — revisions are first-class entities; old states are preserved in place
@@ -94,6 +98,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Context:** The platform should be open-source and usable by others who want to build on it or run their own instances.
 
 **Options considered:**
+
 - MIT — permissive; no patent grant
 - Apache 2.0 — permissive; includes explicit patent grant
 - GPL v3 — copyleft; ensures derivatives remain open but may deter institutional use
@@ -114,6 +119,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Context:** The repository will contain multiple investigations. They need to be navigable, independently cloneable, and extensible without changing the platform.
 
 **Options considered:**
+
 - Flat file structure with investigation prefix — unnavigable at scale
 - One repository per investigation — fragmented; complex cross-investigation linking
 - Subdirectory per investigation, all entity types in typed subdirectories — current approach
@@ -145,6 +151,7 @@ For more detailed Architecture Decision Records, see `docs/adr/`.
 **Context:** Validation scripts need to be accessible to contributors.
 
 **Options considered:**
+
 - Python — widely known; excellent JSON/YAML library ecosystem
 - JavaScript/Node — common in web tooling but less familiar to data/research contributors
 - Shell scripts — portable but fragile for structured data parsing
@@ -244,6 +251,7 @@ The second independent review (preserved at `docs/reviews/`, reviewed commit `07
 **Context:** The reviewer found that D-009's versioning model could not pass D-014's validator: the model requires old and new versions to share a stable `id`, while the duplicate-ID check rejected every repeated `id`. Worse, the `duplicate-id` fixture *enshrined the wrong invariant* — the self-test proved the model could not work. The lesson recorded here deliberately: a self-consistent validation suite is not the same as a correct one; fixtures must be derived from the architectural invariants, not from the validator's current behaviour.
 
 **Decision:**
+
 - Repeated stable `id`s across entity files are valid — that is the versioning model working. All versions of an id must have the same entity type (guaranteed by the type prefix embedded in the id).
 - `version_id`s are globally unique; `(id, version_id)` pairs are unique.
 - Exactly one current version per stable id, enforced on the manifest (duplicate manifest ids rejected).
@@ -265,3 +273,29 @@ The second independent review (preserved at `docs/reviews/`, reviewed commit `07
 The reviewer's remaining critical findings (C-02, C-03) are correct: a mutable `package.yaml` as sole release authority means historical releases require Git archaeology to reconstruct, and references that target stable ids (not versions) can be silently re-pointed by manifest changes. The accepted direction is immutable, content-addressed Edition manifests (RFC 8785 canonical JSON, edition id + parent, exact version ids + digests, dependency edition identities), with `package.yaml` demoted to a mutable working head that compiles into editions at release time. Assessments, reviews, and revisions will pin exact versions or resolve within a declared edition. This is deliberately NOT patched here: it must be designed together with the deterministic-JSON release format (D-001 revision) and signing, as one coherent ADR, before the first real investigation. Doing it piecemeal now would create the third identity model in two days.
 
 **Also explicitly deferred from the second review:** structured evidence selectors and evidence→artifact-digest pinning (H-04, needs the edition design), controlled relationship predicate registry (M-05), YAML resource limits (M-02), calendar-valid date checking (M-01), schema `$id` domain (placeholder until an org/domain exists — Eddie's call), Actions SHA-pinning and hash-locked deps (M-03), DCO/CLA and governance operationalisation (H-08..H-10 — require humans), semantic checks for claim-link ownership and confidence ceilings (H-03 remainder), and the deterministic build test (M-08).
+
+---
+
+## Decisions from the 2026-08-05 Third-Pass Review
+
+The third review (docs/reviews/, reviewed commit `5873299`) scored 4.8→5.8, confirmed C-01 resolved via independent runtime verification, and demonstrated two semantic bypasses with direct probes.
+
+### D-017: Semantic transition validation and hygiene baseline
+
+**Date:** 2026-08-05
+**Status:** Accepted (extends D-015; addresses third-pass immediate items)
+
+**Context:** The reviewer probed the validators directly and found: (1) a Revision whose old/new version_ids belonged to *unrelated entities* was accepted — the version index was lossy (version_id→path), so endpoint identity could not be checked; (2) a manifest omitting its own Investigation entity was accepted; (3) manifest path containment was lexical only and could be bypassed by a tracked symlink. Additionally the declared lint gate was red and the D-015 commit itself introduced trailing whitespace.
+
+**Decision:**
+
+- The version index is now rich (`version_id → {path, id, type}`). Revision transition validation enforces: both endpoints exist, differ, belong to `Revision.entity_id`, and match `Revision.entity_type`; and the OLD version must not be listed as current in the package manifest. The NEW version is deliberately not required to be current, so revision chains (v1→v2→v3) keep intermediate revisions valid.
+- Every manifest must list exactly one Investigation entity, whose id equals the manifest's `investigation_id`.
+- Manifest containment is now resolved, not just lexical: symlinked entity paths are rejected outright, and resolved targets must remain under the package root.
+- Three isolated invalid fixtures prove the new checks (`revision-unrelated-endpoints`, `manifest-no-investigation`, `manifest-symlink-escape` — the latter contains a real tracked symlink). Fixture tests now assert the *exact intended error*, not merely that the intended validator appears among failures (D-014 extension).
+- Hygiene baseline: trailing whitespace stripped repo-wide; deliberate, documented lint policies in `.markdownlint.jsonc` and `.yamllint` (integrity rules enforced; style-war rules disabled on purpose); both linters verified green locally; CI workflows use the repo configs and gained a whitespace check.
+- Metadata drift reconciled: SECURITY support statement matches reality (no formal support pre-1.0), CITATION.cff carries the current version and an honest placeholder note, VERSIONING no longer promises an unimplemented schema-preservation mechanism, ROADMAP reflects the review-driven history and sequences D-016 before first investigations.
+
+**Rationale:** Both probe findings were the same failure class: existence checks standing in for identity checks. The fix is to validate what the record *means* (this revision connects versions of this entity; this package is about this investigation), not just that its references resolve. On lint: the reviewer is right that a permanently red gate is worse than none — the chosen policy is narrow, documented, and actually green, which is worth more than an aspirational strict one that everyone learns to ignore.
+
+**Still open after this decision (tracked in ROADMAP/D-016):** C-02/C-03 (editions + version-pinned references — top of queue), H-04 (evidence→artifact anchoring), H-03 remainder (assessment graph semantics), H-07 (Event/Relationship bypass), governance/rights/privacy (require humans), Actions SHA-pinning and hash-locked deps, YAML resource limits, calendar dates.

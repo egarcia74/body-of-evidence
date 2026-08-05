@@ -3,7 +3,7 @@
 # See schema/review.schema.json for the full schema.
 
 id: "boe:review:01HV8QKJZ9XTMK3P2R7N5W6D4P"
-version_id: "01HVV000000000000000000013"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000013"  # per-version ID; the id above is stable across versions
 type: "review"
 subject_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
 subject_type: "investigation"

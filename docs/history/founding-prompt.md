@@ -13,6 +13,7 @@ You are bootstrapping a new open-source project called **Body of Evidence** (`bo
 ## Step 0 — Find the GitHub folder
 
 Check these paths in order and use the first one that exists:
+
 - ~/GitHub
 - ~/github
 - ~/Projects
@@ -32,6 +33,7 @@ Create the repo at `<github-folder>/body-of-evidence/`.
 Its purpose: make complex investigations inspectable, auditable, reproducible, reviewable, and extendable.
 
 The platform must support investigations such as:
+
 - Anthony Fauci Diary
 - COVID Origins
 - Church Committee
@@ -68,7 +70,7 @@ The architecture must never need redesigning when new investigations are added.
 
 Structured data is the canonical source of truth. Everything else is generated from it.
 
-```
+```text
 Structured Data → Generated Markdown → GitHub Pages → Humans
 Structured Data → MCP → AI Agents
 ```
@@ -79,7 +81,8 @@ Markdown is a presentation layer. GitHub Pages is a presentation layer. MCP is a
 
 ## What to create
 
-### Root documentation files (all with meaningful, concise content — no filler):
+### Root documentation files (all with meaningful, concise content — no filler)
+
 - README.md
 - VISION.md
 - ARCHITECTURE.md
@@ -105,7 +108,8 @@ Markdown is a presentation layer. GitHub Pages is a presentation layer. MCP is a
 
 Also save the full founding prompt at: `docs/history/founding-prompt.md`
 
-### Directory structure — design what makes sense, but at minimum scaffold:
+### Directory structure — design what makes sense, but at minimum scaffold
+
 - `investigations/` — per-investigation data (with a `_template/` directory)
 - `schema/` — JSON Schema definitions for all entities
 - `examples/` — YAML examples of each entity type
@@ -135,6 +139,7 @@ Design JSON Schema for these entities. Every entity gets a stable immutable ID (
 - Finding
 
 Provide:
+
 1. JSON Schema files in `schema/`
 2. YAML examples in `examples/`
 
@@ -153,6 +158,7 @@ Design a 5-level confidence scale (document it in METHODOLOGY.md and schema).
 ### Validation foundations
 
 Create stub scripts (Python or shell, your choice) for:
+
 - schema validation
 - duplicate identifier detection
 - broken references
@@ -173,6 +179,7 @@ Just enough to establish the architecture.
 ### MCP readiness
 
 Design the data model and directory structure to naturally support future MCP tools:
+
 - search_claims, search_sources, search_people, search_events
 - retrieve_evidence, compare_claims
 - timeline, relationship_graph, confidence_lookup
@@ -197,6 +204,7 @@ Document the MCP design intent in ARCHITECTURE.md. Do not implement it.
 3. `git commit -m "feat: bootstrap Body of Evidence v0.1 — founding repository scaffold"`
 
 After the commit, do a self-review:
+
 - Would an independent engineer immediately understand this?
 - Are there any architectural weaknesses to address before declaring done?
 - Is DECISIONS.md populated with the real decisions you made?

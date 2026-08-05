@@ -20,18 +20,23 @@ If your contribution doesn't align with the methodology, it will not be merged â
 ## Types of Contribution
 
 ### 1. Evidence Submission
+
 Adding new evidence to an existing investigation. Use the **Evidence Submission** issue template.
 
 ### 2. Claim Challenge
+
 Formally challenging an existing claim or finding. Use the **Claim Challenge** issue template. A challenge must be evidence-based, not opinion-based.
 
 ### 3. New Investigation Proposal
+
 Proposing a new investigation. Use the **New Investigation Proposal** issue template. Proposals require a defined scope, at least three identified primary sources, and a named lead investigator.
 
 ### 4. Bug Report
+
 Broken links, validation errors, incorrect references, schema violations. Use the **Bug Report** issue template.
 
 ### 5. Platform Improvement
+
 Changes to schema, scripts, documentation, or tooling. Open a standard issue first.
 
 ---
@@ -63,7 +68,7 @@ All changes come in via Pull Request. PRs that touch investigation data require 
 
 Use conventional commits:
 
-```
+```text
 feat: add covid-origins investigation scaffold
 fix: correct broken source reference in claim boe:claim:...
 docs: update METHODOLOGY.md confidence framework

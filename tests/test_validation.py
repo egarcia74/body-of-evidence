@@ -173,7 +173,10 @@ class TestVersioningModel:
 
 
 class TestInvalidFixtures:
-    """Every invalid fixture must be rejected by at least one check."""
+    """Every invalid fixture must be rejected by the intended check WITH the
+    intended error — asserting only "some check failed" would let a fixture
+    fail for the wrong reason and silently stop proving its invariant
+    (third-pass review, D-014 extension)."""
 
     def _all_checks_pass(self, pkg: Path) -> tuple[bool, list]:
         failing = []
@@ -186,17 +189,29 @@ class TestInvalidFixtures:
         return len(failing) == 0, failing
 
     @pytest.mark.parametrize(
-        "pkg_name,expected_check",
+        "pkg_name,expected_check,expected_error_fragment",
         [
-            ("duplicate-version-id", "run_id_validation"),
-            ("broken-reference", "run_reference_validation"),
-            ("orphan-evidence", "run_orphan_validation"),
-            ("missing-provenance", "run_provenance_validation"),
-            ("bad-id-format", "run_id_validation"),
-            ("missing-manifest", "run_reference_validation"),
+            ("duplicate-version-id", "run_id_validation",
+             "Duplicate version_id"),
+            ("broken-reference", "run_reference_validation",
+             "not found"),
+            ("orphan-evidence", "run_orphan_validation",
+             "orphaned evidence"),
+            ("missing-provenance", "run_provenance_validation",
+             "provenance"),
+            ("bad-id-format", "run_id_validation",
+             "does not match pattern boe:<type>:<ulid>"),
+            ("missing-manifest", "run_reference_validation",
+             "Missing package.yaml"),
+            ("revision-unrelated-endpoints", "run_reference_validation",
+             "same entity"),
+            ("manifest-no-investigation", "run_reference_validation",
+             "no Investigation entity"),
+            ("manifest-symlink-escape", "run_reference_validation",
+             "symlink"),
         ],
     )
-    def test_invalid_fixture_rejected(self, pkg_name, expected_check):
+    def test_invalid_fixture_rejected(self, pkg_name, expected_check, expected_error_fragment):
         pkg = FIXTURES / "invalid" / pkg_name
         assert pkg.exists(), f"Missing invalid fixture: {pkg_name}"
         all_pass, failing = self._all_checks_pass(pkg)
@@ -205,4 +220,10 @@ class TestInvalidFixtures:
         assert expected_check in failing_names, (
             f"invalid/{pkg_name} should be rejected by {expected_check}, "
             f"was rejected by {failing_names}"
+        )
+        expected_errors = dict(failing)[expected_check]
+        assert any(expected_error_fragment in e for e in expected_errors), (
+            f"invalid/{pkg_name}: {expected_check} failed, but not with the "
+            f"intended error (wanted '{expected_error_fragment}', got: "
+            f"{expected_errors})"
         )

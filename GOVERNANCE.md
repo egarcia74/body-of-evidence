@@ -13,6 +13,7 @@ This document describes how Body of Evidence makes decisions — about investiga
 Maintainers have merge rights on the main branch and are responsible for the technical and editorial health of the platform. Maintainers are listed in [CODEOWNERS](.github/CODEOWNERS).
 
 Maintainers are responsible for:
+
 - Reviewing and merging PRs
 - Ensuring methodological consistency
 - Resolving disputes
@@ -22,6 +23,7 @@ Maintainers are responsible for:
 ### Lead Investigator
 
 Each investigation has a designated lead investigator responsible for:
+
 - Scoping the investigation
 - Ensuring sources are documented with provenance
 - Reviewing evidence submissions from contributors
@@ -48,6 +50,7 @@ Minor changes (typo fixes, broken link repairs, documentation improvements, new 
 ### Investigation Lifecycle Decisions
 
 Moving an investigation from `draft` → `review` → `published` requires:
+
 - Lead investigator sign-off
 - At least one maintainer review
 - All validation checks passing
@@ -55,6 +58,7 @@ Moving an investigation from `draft` → `review` → `published` requires:
 ### Architectural Decisions
 
 Changes to schema, methodology, or core platform design require:
+
 - A written proposal in the form of an issue
 - At least 7 days open for discussion
 - Consensus among active maintainers (no active objections from more than one maintainer)
@@ -63,6 +67,7 @@ Changes to schema, methodology, or core platform design require:
 ### Disputed Claims
 
 When a contributor formally challenges a claim or finding:
+
 1. The challenge is recorded as a `Review` entity with type `challenge`
 2. The lead investigator has 30 days to respond
 3. If the challenge cannot be resolved between challenger and lead investigator, a maintainer makes a final determination

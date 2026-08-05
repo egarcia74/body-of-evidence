@@ -1,7 +1,7 @@
 # [Investigation Title]
 
-**Status:** Draft  
-**Lead Investigator:** @github-username  
+**Status:** Draft
+**Lead Investigator:** @github-username
 **Scope:** [Time period and subject]
 
 ---

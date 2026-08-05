@@ -33,9 +33,9 @@ For PRs that touch investigation data:
 - [ ] This PR contains no confidential material and nothing the contributors lack the right to publish
 - [ ] AI assistance is disclosed below per AI_GUIDELINES.md
 
-AI assistance disclosure (or "none"): 
+AI assistance disclosure (or "none"):
 
-Conflict of interest (or "none"): 
+Conflict of interest (or "none"):
 
 ## Related Issues
 

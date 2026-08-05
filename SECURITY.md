@@ -10,6 +10,7 @@ This security policy covers:
 - Any mechanism by which a malicious contribution could compromise the integrity of the evidence model
 
 It does not cover:
+
 - Disagreements with findings (use the claim challenge process in [PEER_REVIEW.md](PEER_REVIEW.md))
 - Platform content (use the bug report issue template)
 
@@ -17,7 +18,9 @@ It does not cover:
 
 | Version | Security Support |
 |---|---|
-| 0.1.x | Active |
+| 0.x (pre-alpha) | Best effort — no formal support commitment exists before 1.0 |
+
+There are no tagged releases yet. Security-relevant fixes land on `main`.
 
 ## Reporting a Vulnerability
 
@@ -26,6 +29,7 @@ It does not cover:
 Report security vulnerabilities by emailing the maintainer team. The email address for security disclosures will be added when the maintainer team is established. In the interim, open a private security advisory via GitHub's security advisory feature (Security → Advisories → New draft security advisory).
 
 Include:
+
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact

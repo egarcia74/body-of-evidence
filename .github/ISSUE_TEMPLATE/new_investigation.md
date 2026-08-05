@@ -8,7 +8,7 @@ assignees: ""
 
 ## Proposed Investigation
 
-**Title:** 
+**Title:**
 **Proposed slug:** (kebab-case, e.g., `church-committee`)
 
 ## Scope
@@ -25,7 +25,7 @@ assignees: ""
 
 ## Lead Investigator
 
-**GitHub username:** 
+**GitHub username:**
 **Conflict of interest:** (any relationship with the investigation subject)
 
 ## Primary Sources
@@ -40,9 +40,9 @@ Identify at least 3 primary sources that are publicly obtainable and will form t
 
 What are 2–3 initial claims you intend to investigate? These will be refined during the investigation.
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## Resources Required
 

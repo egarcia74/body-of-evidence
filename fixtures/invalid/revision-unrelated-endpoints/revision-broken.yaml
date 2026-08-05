@@ -1,0 +1,17 @@
+# INVALID FIXTURE — old_version_id belongs to claim-beta, but the revision
+# declares it revises claim-alpha. Both versions EXIST; a lossy existence
+# check passes this. The transition check must reject it.
+id: "boe:revision:01JF0000000000000000000703"
+version_id: "01JFV000000000000000000703"
+type: "revision"
+entity_id: "boe:claim:01JF0000000000000000000701"
+entity_type: "claim"
+revision_type: "correction"
+old_version_id: "01JFV000000000000000000702"
+new_version_id: "01JFV000000000000000000701"
+reason: "Fixture revision deliberately connecting versions of unrelated entities."
+author:
+  identifier: "fixture-investigator"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+created_at: "2026-08-04T00:00:00Z"

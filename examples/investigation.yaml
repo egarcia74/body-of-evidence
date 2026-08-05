@@ -3,7 +3,7 @@
 # See schema/investigation.schema.json for the full schema.
 
 id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
-version_id: "01HVV000000000000000000001"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000001"  # per-version ID; the id above is stable across versions
 type: "investigation"
 title: "Example Investigation: Senate Select Committee on Intelligence Activities"
 slug: "church-committee"                    # Must match investigations/ subdirectory name

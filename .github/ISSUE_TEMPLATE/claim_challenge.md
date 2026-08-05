@@ -10,7 +10,7 @@ assignees: ""
 
 Entity ID: `boe:...`
 Entity type: (claim / finding / assessment)
-Investigation: 
+Investigation:
 
 ## The basis of your challenge
 
@@ -24,27 +24,27 @@ Investigation:
 
 <!-- Describe the evidence that contradicts or modifies the existing entity. Include source, provenance, and specific extraction. -->
 
-**Source:** 
-**Location in source:** 
+**Source:**
+**Location in source:**
 **Quotation:**
-> 
+>
 
 **Why this changes the assessment:**
 
 ### What outcome you are requesting
 
 - [ ] Correct a factual error in the claim statement
-- [ ] Lower the confidence level (from ___ to ___)
+- [ ] Lower the confidence level (state current and proposed levels)
 - [ ] Add contradictory evidence to the record
 - [ ] Add a caveat to a finding
 - [ ] Record the assessment as `conclusion: mixed` and/or `dispute_status: disputed`
-- [ ] Other: 
+- [ ] Other:
 
 ## Your conflict of interest
 
 <!-- Any financial, personal, or professional relationship with the investigation subject -->
 
-Conflict of interest: 
+Conflict of interest:
 
 ## Notes
 

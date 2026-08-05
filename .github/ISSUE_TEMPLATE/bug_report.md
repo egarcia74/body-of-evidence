@@ -14,8 +14,8 @@ assignees: ""
 
 <!-- File path, URL, or entity ID where the problem occurs -->
 
-Entity ID (if applicable): 
-File path (if applicable): 
+Entity ID (if applicable):
+File path (if applicable):
 
 ## Expected behaviour
 
@@ -29,11 +29,11 @@ File path (if applicable):
 
 <!-- How can a maintainer verify this? -->
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## Environment
 
-- Validation script version: 
-- Python version (if relevant): 
+- Validation script version:
+- Python version (if relevant):

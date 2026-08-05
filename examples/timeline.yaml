@@ -3,7 +3,7 @@
 # See schema/timeline.schema.json for the full schema.
 
 id: "boe:timeline:01HV8QKJZ9XTMK3P2R7N5W6D4R"
-version_id: "01HVV000000000000000000010"          # Immutable per-version ID; the entity id above is stable across versions
+version_id: "01HVV000000000000000000010"  # per-version ID; the id above is stable across versions
 type: "timeline"
 investigation_id: "boe:investigation:01HV8QKJZ9XTMK3P2R7N5W6D4E"
 

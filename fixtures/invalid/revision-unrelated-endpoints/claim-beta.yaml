@@ -1,0 +1,8 @@
+# INVALID FIXTURE support file — valid on its own, UNRELATED to claim-alpha
+id: "boe:claim:01JF0000000000000000000702"
+version_id: "01JFV000000000000000000702"
+type: "claim"
+investigation_id: "boe:investigation:01JF0000000000000000000700"
+status: "draft"
+statement: "Fixture claim beta — a different entity whose version the broken revision claims to supersede."
+created_at: "2026-08-04T00:00:00Z"

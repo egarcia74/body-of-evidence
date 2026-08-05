@@ -4,7 +4,7 @@
 
 Body of Evidence is built around a single architectural principle: **structured data is the canonical source of truth.** Everything else — markdown files, web pages, API responses — is a generated view over that data.
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Canonical Source of Truth                 │
 │              Structured YAML/JSON Evidence Data              │
@@ -66,7 +66,7 @@ All schemas are defined in `schema/`. Examples of each entity are in `examples/`
 
 ## Directory Structure
 
-```
+```text
 body-of-evidence/
 ├── investigations/              # Per-investigation data packages
 │   ├── _template/               # Copy this to start a new investigation
@@ -149,7 +149,7 @@ body-of-evidence/
 
 Each entity version carries a lifecycle status:
 
-```
+```text
 Draft → Review → Published → Archived
 ```
 
@@ -182,7 +182,7 @@ Evidence on both sides of a claim is `conclusion: mixed`, not a confidence level
 
 The structured evidence model is designed from the ground up to be queryable by AI agents via the Model Context Protocol. Future MCP tools will include:
 
-```
+```text
 search_claims(query, investigation?, confidence_min?)
 search_sources(query, type?, date_range?)
 search_people(query)
