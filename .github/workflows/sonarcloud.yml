@@ -14,8 +14,12 @@ jobs:
     name: SonarQube Cloud scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Secrets aren't available to PRs from forks; skip rather than fail.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # Secrets aren't available to PRs from forks, NOR to Dependabot-triggered
+    # pull_request runs (GitHub treats those like fork PRs for secret access
+    # even though they're same-repo) — skip both rather than fail on a
+    # missing SONAR_TOKEN. Lint/Validate/CodeRabbit still run on these PRs;
+    # only the Sonar scan is skipped.
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       # TODO: pin actions to full commit SHAs before first tagged release
       # (GitHub secure-use guidance). Tags used during pre-alpha.
