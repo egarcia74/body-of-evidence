@@ -3,9 +3,19 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/investigation.schema.json",
   "title": "Investigation",
   "description": "A bounded inquiry with a defined scope, stated methodology, and lifecycle state. The Investigation entity is the container for all related claims, evidence, sources, and findings.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "title", "slug", "status", "scope", "lead_investigator", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "title",
+    "slug",
+    "status",
+    "scope",
+    "lead_investigator",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -41,7 +51,9 @@
     },
     "scope": {
       "type": "object",
-      "required": ["description"],
+      "required": [
+        "description"
+      ],
       "properties": {
         "description": {
           "type": "string",
@@ -49,19 +61,27 @@
         },
         "in_scope": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Explicit list of topics, events, or questions that are within scope."
         },
         "out_of_scope": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Explicit list of topics, events, or questions that are explicitly excluded."
         },
         "time_period": {
           "type": "object",
           "properties": {
-            "start": { "$ref": "common.schema.json#/$defs/isoDate" },
-            "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+            "start": {
+              "$ref": "common.schema.json#/$defs/isoDate"
+            },
+            "end": {
+              "$ref": "common.schema.json#/$defs/isoDate"
+            }
           },
           "description": "The time period covered by the investigation."
         }
@@ -73,7 +93,9 @@
     },
     "contributors": {
       "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/contributor" },
+      "items": {
+        "$ref": "common.schema.json#/$defs/contributor"
+      },
       "description": "Additional contributors to this investigation."
     },
     "methodology_notes": {
@@ -97,7 +119,9 @@
     },
     "related_investigations": {
       "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/investigationReference" },
+      "items": {
+        "$ref": "common.schema.json#/$defs/investigationReference"
+      },
       "description": "Other investigations that overlap or are directly related."
     }
   },

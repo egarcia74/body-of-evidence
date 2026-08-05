@@ -5,7 +5,19 @@
   "description": "A change activity connecting an old entity version to a new one. Revisions record WHY a change happened; WHICH version is current is recorded in the package manifest, never by editing old files. Old version files are never modified in any way — not even their status field. Supersession is a property of the manifest, not of the superseded file.",
   "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "entity_id", "entity_type", "reason", "author", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "entity_id",
+    "entity_type",
+    "reason",
+    "author",
+    "created_at",
+    "old_version_id",
+    "new_version_id",
+    "revision_type"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -25,7 +37,21 @@
     },
     "entity_type": {
       "type": "string",
-      "enum": ["investigation", "claim", "evidence", "source", "assessment", "finding", "person", "organisation", "event", "timeline", "relationship", "review", "claim_evidence_link"],
+      "enum": [
+        "investigation",
+        "claim",
+        "evidence",
+        "source",
+        "assessment",
+        "finding",
+        "person",
+        "organisation",
+        "event",
+        "timeline",
+        "relationship",
+        "review",
+        "claim_evidence_link"
+      ],
       "description": "The type of the entity being revised."
     },
     "old_version_id": {

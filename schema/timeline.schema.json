@@ -3,9 +3,17 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/timeline.schema.json",
   "title": "Timeline",
   "description": "An ordered sequence of events within an investigation, optionally covering a specific sub-topic or thread. Timelines are curatorial views over Event entities — they select and order, but must not introduce facts not present in the referenced events. Expect this entity to become fully derived (generated from event dates) in a future schema version.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "investigation_id", "title", "event_ids", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "investigation_id",
+    "title",
+    "event_ids",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -44,8 +52,12 @@
     "period": {
       "type": "object",
       "properties": {
-        "start": { "$ref": "common.schema.json#/$defs/isoDate" },
-        "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+        "start": {
+          "$ref": "common.schema.json#/$defs/isoDate"
+        },
+        "end": {
+          "$ref": "common.schema.json#/$defs/isoDate"
+        }
       },
       "description": "The time period this timeline spans."
     },

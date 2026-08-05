@@ -3,9 +3,21 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/finding.schema.json",
   "title": "Finding",
   "description": "A high-level conclusion synthesised from ASSESSED claims. Findings must not introduce facts that are not present in the referenced claims — a finding is a synthesis, not a new assertion path. A finding's confidence cannot exceed the confidence of the weakest claim assessment it depends on for a load-bearing element. Validation of this invariant is planned; until then it is enforced by review.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "investigation_id", "statement", "claim_ids", "confidence_level", "confidence_label", "rationale", "status", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "investigation_id",
+    "statement",
+    "claim_ids",
+    "confidence_level",
+    "confidence_label",
+    "rationale",
+    "status",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -73,5 +85,107 @@
       "$ref": "common.schema.json#/$defs/isoDateTime"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 1
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "speculative"
+          }
+        },
+        "$comment": "Level 1 must pair with label 'speculative'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 2
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "weak"
+          }
+        },
+        "$comment": "Level 2 must pair with label 'weak'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 3
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "moderate"
+          }
+        },
+        "$comment": "Level 3 must pair with label 'moderate'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 4
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "strong"
+          }
+        },
+        "$comment": "Level 4 must pair with label 'strong'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 5
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "near_certain"
+          }
+        },
+        "$comment": "Level 5 must pair with label 'near_certain'"
+      }
+    }
+  ]
 }

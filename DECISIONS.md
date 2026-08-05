@@ -229,3 +229,39 @@ An independent principal-architect review of commit `f758968` (preserved at `doc
 ### Deferred review recommendations (tracked, not lost)
 
 Deliberately not done now, in rough priority order for later milestones: deterministic canonical JSON release representation (RFC 8785) with YAML demoted to authoring format; signed release manifests and two-person release rules; SQLite/FTS derived query index for MCP; structured evidence selectors; SourceWork/SourceArtifact/EvidenceFragment split; publication editions; cross-package identity resolution; governance quorum/appeals/succession (requires real humans, not schema); operational security contact; CITATION.cff completion; GitHub Actions SHA-pinning; private evidence vault for confidential sources (until it exists, confidential material is prohibited in this repository). See ROADMAP.md.
+
+---
+
+## Decisions from the 2026-08-05 Second-Pass Review
+
+The second independent review (preserved at `docs/reviews/`, reviewed commit `0728c6f`) scored the remediation 3.5→4.8 and identified one release-blocking contradiction plus enforcement gaps. Response below.
+
+### D-015: Repair of the D-009 implementation — repeated stable ids are valid
+
+**Date:** 2026-08-05
+**Status:** Accepted (repairs D-009's implementation; amends D-012, D-014)
+
+**Context:** The reviewer found that D-009's versioning model could not pass D-014's validator: the model requires old and new versions to share a stable `id`, while the duplicate-ID check rejected every repeated `id`. Worse, the `duplicate-id` fixture *enshrined the wrong invariant* — the self-test proved the model could not work. The lesson recorded here deliberately: a self-consistent validation suite is not the same as a correct one; fixtures must be derived from the architectural invariants, not from the validator's current behaviour.
+
+**Decision:**
+- Repeated stable `id`s across entity files are valid — that is the versioning model working. All versions of an id must have the same entity type (guaranteed by the type prefix embedded in the id).
+- `version_id`s are globally unique; `(id, version_id)` pairs are unique.
+- Exactly one current version per stable id, enforced on the manifest (duplicate manifest ids rejected).
+- Manifests are now mandatory: a package without `package.yaml` has no defined current state and fails validation.
+- Manifest hardening: path containment (no absolute paths, no `..` — schema pattern + semantic check), listed files must exist and match their declared id/version_id, unique version_ids and paths among entries, slug must match the package directory, `investigation_id` must match the listed Investigation entity.
+- Revision `old_version_id`/`new_version_id`/`revision_type` are now required by schema; both endpoints must correspond to existing version files and must differ.
+- Confidence label/level pairing is enforced by schema (`if/then` on Assessment and Finding). Assessment `dispute_status`, `link_ids` (min 1), and `methodology_version` are required.
+- Tier D/E source flags are now advisories, not errors — a disputed source is a legitimate, explicitly uncertain part of the record, not invalid data.
+- The valid fixture contains a superseded claim version (same id, different version_id, absent from the manifest) plus the Revision connecting the versions, so the D-009 workflow is continuously proven to validate. New invalid fixtures: `duplicate-version-id`, `missing-manifest`. The false SHA-256 example (empty-string digest presented as a PDF's) was replaced with a verifiable digest of documented synthetic bytes in both examples and fixtures.
+- Contributor surfaces were aligned with the model: evidence submission template now collects per-claim links with polarity (not polarity-on-evidence), PR template checks the v0.2 invariants, and the confidential-material prohibition is normative in CONTRIBUTING.md, ETHICS.md, and the templates.
+
+**Rationale:** All of these are enforcement corrections to decisions already made — none change the model's shape. They were done immediately because every one becomes a data migration the day a real investigation lands.
+
+### D-016 (direction, not yet designed): Immutable edition manifests
+
+**Date:** 2026-08-05
+**Status:** Accepted as direction; design ADR required before implementation
+
+The reviewer's remaining critical findings (C-02, C-03) are correct: a mutable `package.yaml` as sole release authority means historical releases require Git archaeology to reconstruct, and references that target stable ids (not versions) can be silently re-pointed by manifest changes. The accepted direction is immutable, content-addressed Edition manifests (RFC 8785 canonical JSON, edition id + parent, exact version ids + digests, dependency edition identities), with `package.yaml` demoted to a mutable working head that compiles into editions at release time. Assessments, reviews, and revisions will pin exact versions or resolve within a declared edition. This is deliberately NOT patched here: it must be designed together with the deterministic-JSON release format (D-001 revision) and signing, as one coherent ADR, before the first real investigation. Doing it piecemeal now would create the third identity model in two days.
+
+**Also explicitly deferred from the second review:** structured evidence selectors and evidence→artifact-digest pinning (H-04, needs the edition design), controlled relationship predicate registry (M-05), YAML resource limits (M-02), calendar-valid date checking (M-01), schema `$id` domain (placeholder until an org/domain exists — Eddie's call), Actions SHA-pinning and hash-locked deps (M-03), DCO/CLA and governance operationalisation (H-08..H-10 — require humans), semantic checks for claim-link ownership and confidence ceilings (H-03 remainder), and the deterministic build test (M-08).

@@ -123,22 +123,80 @@ def validate_references_in_file(yaml_file: Path, data: dict, id_index: dict) -> 
     return errors
 
 
+def _path_is_contained(path_str: str) -> bool:
+    """A manifest path must be relative and stay inside the package."""
+    if not path_str:
+        return False
+    p = Path(path_str)
+    if p.is_absolute():
+        return False
+    if ".." in p.parts:
+        return False
+    return True
+
+
 def validate_manifest(inv_path: Path, id_index: dict, version_index: dict) -> list[str]:
-    """Check the package manifest is consistent with the entity files it lists."""
-    errors = []
+    """
+    The manifest is the release authority — validate it hard:
+    - it must exist (a package without a manifest has no defined current state)
+    - listed paths are contained within the package (no absolute, no '..')
+    - listed files exist and their id/version_id match the entry
+    - exactly one current entry per stable entity id
+    - no duplicate version_ids or paths among entries
+    - the manifest slug matches the package directory name
+    - the manifest investigation_id matches the Investigation entity it lists
+    """
     manifest_path = find_manifest(inv_path)
     if manifest_path is None:
-        return errors
+        return [
+            f"{inv_path}: Missing package.yaml manifest — a package without a "
+            f"manifest has no defined current state (see D-012)"
+        ]
     data, error = load_yaml(manifest_path)
     if error:
         return [error]
     if not data:
-        return errors
+        return [f"{manifest_path}: Manifest is empty"]
 
+    errors = []
     ctx = str(manifest_path)
+
+    if data.get("slug") and data["slug"] != inv_path.name:
+        errors.append(
+            f"{ctx}: Manifest slug '{data['slug']}' does not match package "
+            f"directory name '{inv_path.name}'"
+        )
+
+    seen_entry_ids = {}
+    seen_entry_versions = {}
+    seen_entry_paths = {}
+
     for entry in data.get("entities", []):
         eid, vid, path = entry.get("id"), entry.get("version_id"), entry.get("path")
+
+        if eid:
+            if eid in seen_entry_ids:
+                errors.append(
+                    f"{ctx}: Entity id '{eid}' listed more than once — the "
+                    f"manifest defines exactly one CURRENT version per entity"
+                )
+            seen_entry_ids[eid] = entry
+        if vid:
+            if vid in seen_entry_versions:
+                errors.append(f"{ctx}: version_id '{vid}' listed more than once")
+            seen_entry_versions[vid] = entry
         if path:
+            if path in seen_entry_paths:
+                errors.append(f"{ctx}: Path '{path}' listed more than once")
+            seen_entry_paths[path] = entry
+
+            if not _path_is_contained(path):
+                errors.append(
+                    f"{ctx}: Path '{path}' is not contained in the package "
+                    f"(absolute paths and '..' are rejected)"
+                )
+                continue
+
             entity_file = inv_path / path
             if not entity_file.exists():
                 errors.append(f"{ctx}: Listed path '{path}' does not exist")
@@ -156,6 +214,46 @@ def validate_manifest(inv_path: Path, id_index: dict, version_index: dict) -> li
                     f"{ctx}: Entry version_id '{vid}' does not match version_id "
                     f"'{file_data.get('version_id')}' in {path}"
                 )
+
+    # Manifest investigation_id must match the Investigation entity it lists
+    manifest_inv_id = data.get("investigation_id")
+    if manifest_inv_id:
+        for entry in data.get("entities", []):
+            path = entry.get("path")
+            if not path or not _path_is_contained(path):
+                continue
+            entity_file = inv_path / path
+            if not entity_file.exists():
+                continue
+            file_data, ferr = load_yaml(entity_file)
+            if ferr or not file_data:
+                continue
+            if file_data.get("type") == "investigation":
+                if file_data.get("id") != manifest_inv_id:
+                    errors.append(
+                        f"{ctx}: investigation_id '{manifest_inv_id}' does not "
+                        f"match the Investigation entity '{file_data.get('id')}' "
+                        f"listed in the manifest"
+                    )
+                break
+
+    return errors
+
+
+def validate_revision_versions(yaml_file: Path, data: dict, version_index: dict) -> list[str]:
+    """Revision old/new version_ids must reference version files that exist."""
+    errors = []
+    ctx = str(yaml_file)
+    for field in ("old_version_id", "new_version_id"):
+        vid = data.get(field)
+        if vid and vid not in version_index:
+            errors.append(
+                f"{ctx}[{field}]: version_id '{vid}' does not correspond to "
+                f"any entity version file"
+            )
+    old, new = data.get("old_version_id"), data.get("new_version_id")
+    if old and new and old == new:
+        errors.append(f"{ctx}: old_version_id and new_version_id are identical")
     return errors
 
 
@@ -181,8 +279,10 @@ def run_reference_validation(
     all_errors = []
     for path, data in entities:
         all_errors.extend(validate_references_in_file(path, data, id_index))
+        if data.get("type") == "revision":
+            all_errors.extend(validate_revision_versions(path, data, version_index))
 
-    # Pass 3: manifests
+    # Pass 3: manifests (mandatory — the release authority)
     for inv_path in investigation_paths:
         all_errors.extend(validate_manifest(inv_path, id_index, version_index))
 

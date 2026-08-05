@@ -24,6 +24,9 @@ entities:
   - id: "boe:assessment:01JF0000000000000000000006"
     version_id: "01JFV000000000000000000006"
     path: "assessments/assessment-scoring.yaml"
+  - id: "boe:revision:01JF0000000000000000000007"
+    version_id: "01JFV000000000000000000007"
+    path: "revisions/revision-scoring-precision.yaml"
 maintainers:
   - identifier: "fixture-investigator"
     role: "lead_investigator"

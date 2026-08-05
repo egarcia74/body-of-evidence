@@ -8,6 +8,19 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to second-pass review (2026-08-05, D-015)
+
+- FIXED the release-blocking versioning contradiction: repeated stable ids across version files now validate (that IS the model); version_ids globally unique; (id, version_id) pairs unique; one current version per id enforced on the manifest
+- Manifests now mandatory; path containment, existence, id/version match, entry uniqueness, slug and investigation_id consistency all enforced
+- Revision old/new version_ids + revision_type required; endpoints must exist and differ
+- Assessment dispute_status, link_ids, methodology_version required; confidence label/level pairing enforced by schema on Assessment and Finding
+- Tier D/E source flags demoted from errors to advisories
+- Replaced the false SHA-256 example (empty-string digest) with verifiable digests of documented synthetic bytes
+- Valid fixture now contains a superseded entity version + connecting Revision, proving the versioning workflow validates; new invalid fixtures: duplicate-version-id, missing-manifest (old duplicate-id fixture removed — it enshrined the wrong invariant)
+- Evidence submission and PR templates aligned with the v0.2 model (polarity on links, digests, version workflow); confidential-material prohibition made normative in CONTRIBUTING, ETHICS, and templates
+- All schemas declare version 0.2.0 (one coherent bundle)
+- Accepted direction for immutable edition manifests recorded as D-016 (design ADR required before implementation)
+
 ### Changed — response to independent architecture review (2026-08-05)
 
 Schema version 0.2.0. Breaking changes; no migration needed (no investigation data existed). Full reasoning in DECISIONS.md D-009 through D-014; the review itself is preserved in docs/reviews/.

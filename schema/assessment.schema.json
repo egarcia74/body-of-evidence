@@ -5,7 +5,21 @@
   "description": "A structured evaluation of a claim's evidential support. An assessment records three SEPARATE dimensions: (1) conclusion — the assessed direction of the evidence; (2) confidence — the epistemic strength of that conclusion; (3) dispute_status — whether the assessment is under active formal challenge. These are deliberately not conflated: an assessment can be high-confidence and disputed, or low-confidence and undisputed.",
   "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "claim_id", "conclusion", "confidence_level", "confidence_label", "rationale", "assessor", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "claim_id",
+    "conclusion",
+    "confidence_level",
+    "confidence_label",
+    "rationale",
+    "assessor",
+    "created_at",
+    "dispute_status",
+    "link_ids",
+    "methodology_version"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -46,7 +60,8 @@
         "type": "string",
         "pattern": "^boe:claim_evidence_link:[0-9A-HJKMNP-TV-Z]{26}$"
       },
-      "description": "The ClaimEvidenceLink entities considered in this assessment. Links carry polarity, so supporting and contradicting evidence are both captured here — an assessment that omits known contradicting links is methodologically invalid."
+      "description": "The ClaimEvidenceLink entities considered in this assessment. Links carry polarity, so supporting and contradicting evidence are both captured here — an assessment that omits known contradicting links is methodologically invalid.",
+      "minItems": 1
     },
     "confidence_factors": {
       "type": "object",
@@ -54,32 +69,62 @@
       "properties": {
         "evidence_strength": {
           "type": "string",
-          "enum": ["strong", "moderate", "weak", "absent"],
+          "enum": [
+            "strong",
+            "moderate",
+            "weak",
+            "absent"
+          ],
           "description": "Whether evidence is direct or circumstantial, first-hand or reported."
         },
         "source_quality": {
           "type": "string",
-          "enum": ["high", "moderate", "low", "unverified"],
+          "enum": [
+            "high",
+            "moderate",
+            "low",
+            "unverified"
+          ],
           "description": "Quality of the underlying sources."
         },
         "corroboration": {
           "type": "string",
-          "enum": ["strong", "partial", "single_source", "none"],
+          "enum": [
+            "strong",
+            "partial",
+            "single_source",
+            "none"
+          ],
           "description": "Whether multiple independent sources corroborate the claim."
         },
         "completeness": {
           "type": "string",
-          "enum": ["complete", "substantial_gaps", "significant_gaps", "incomplete"],
+          "enum": [
+            "complete",
+            "substantial_gaps",
+            "significant_gaps",
+            "incomplete"
+          ],
           "description": "Whether the evidence base is reasonably complete."
         },
         "alternative_explanations": {
           "type": "string",
-          "enum": ["none_credible", "possible_but_unlikely", "viable", "equally_likely"],
+          "enum": [
+            "none_credible",
+            "possible_but_unlikely",
+            "viable",
+            "equally_likely"
+          ],
           "description": "Whether credible alternative explanations exist."
         },
         "context_integrity": {
           "type": "string",
-          "enum": ["full_context", "minor_gaps", "context_uncertain", "context_problematic"],
+          "enum": [
+            "full_context",
+            "minor_gaps",
+            "context_uncertain",
+            "context_problematic"
+          ],
           "description": "Whether evidence is being interpreted in proper context."
         }
       },
@@ -106,5 +151,107 @@
       "$ref": "common.schema.json#/$defs/isoDateTime"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 1
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "speculative"
+          }
+        },
+        "$comment": "Level 1 must pair with label 'speculative'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 2
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "weak"
+          }
+        },
+        "$comment": "Level 2 must pair with label 'weak'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 3
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "moderate"
+          }
+        },
+        "$comment": "Level 3 must pair with label 'moderate'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 4
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "strong"
+          }
+        },
+        "$comment": "Level 4 must pair with label 'strong'"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "confidence_level": {
+            "const": 5
+          }
+        },
+        "required": [
+          "confidence_level"
+        ]
+      },
+      "then": {
+        "properties": {
+          "confidence_label": {
+            "const": "near_certain"
+          }
+        },
+        "$comment": "Level 5 must pair with label 'near_certain'"
+      }
+    }
+  ]
 }

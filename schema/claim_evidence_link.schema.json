@@ -3,9 +3,17 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/claim_evidence_link.schema.json",
   "title": "ClaimEvidenceLink",
   "description": "A versioned, directional edge connecting one Evidence entity to one Claim entity. Polarity (supports/contradicts/etc.) lives HERE, not on the evidence — because the same evidence may support claim A, contradict claim B, and merely contextualise claim C. This is the only place claim-evidence connections are stored; backlinks on claims and evidence are derived by tooling.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "claim_id", "evidence_id", "polarity", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "claim_id",
+    "evidence_id",
+    "polarity",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -30,12 +38,23 @@
     },
     "polarity": {
       "type": "string",
-      "enum": ["supports", "contradicts", "contextualises", "corroborates", "impeaches"],
+      "enum": [
+        "supports",
+        "contradicts",
+        "contextualises",
+        "corroborates",
+        "impeaches"
+      ],
       "description": "How this evidence bears on this specific claim. 'corroborates' means it independently confirms other evidence for the claim; 'impeaches' means it undermines the credibility of other evidence or a source relied on by the claim."
     },
     "strength": {
       "type": "string",
-      "enum": ["direct", "strong_circumstantial", "circumstantial", "weak"],
+      "enum": [
+        "direct",
+        "strong_circumstantial",
+        "circumstantial",
+        "weak"
+      ],
       "description": "How directly this evidence bears on the claim, for this link specifically."
     },
     "reasoning": {

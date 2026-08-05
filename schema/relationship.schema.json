@@ -3,9 +3,19 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/relationship.schema.json",
   "title": "Relationship",
   "description": "A typed, directional connection between any two entities. Relationships allow the evidence model to express who knew whom, which organisations were connected, which events triggered other events, and similar structural connections.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "from_id", "from_type", "to_id", "to_type", "relationship_type", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "from_id",
+    "from_type",
+    "to_id",
+    "to_type",
+    "relationship_type",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -25,7 +35,14 @@
     },
     "from_type": {
       "type": "string",
-      "enum": ["person", "organisation", "event", "claim", "finding", "investigation"],
+      "enum": [
+        "person",
+        "organisation",
+        "event",
+        "claim",
+        "finding",
+        "investigation"
+      ],
       "description": "The type of the source entity."
     },
     "to_id": {
@@ -35,7 +52,14 @@
     },
     "to_type": {
       "type": "string",
-      "enum": ["person", "organisation", "event", "claim", "finding", "investigation"],
+      "enum": [
+        "person",
+        "organisation",
+        "event",
+        "claim",
+        "finding",
+        "investigation"
+      ],
       "description": "The type of the target entity."
     },
     "relationship_type": {
@@ -50,8 +74,12 @@
     "period": {
       "type": "object",
       "properties": {
-        "start": { "$ref": "common.schema.json#/$defs/isoDate" },
-        "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+        "start": {
+          "$ref": "common.schema.json#/$defs/isoDate"
+        },
+        "end": {
+          "$ref": "common.schema.json#/$defs/isoDate"
+        }
       },
       "description": "When this relationship existed or was active."
     },
@@ -74,7 +102,9 @@
     },
     "investigation_ids": {
       "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/investigationReference" }
+      "items": {
+        "$ref": "common.schema.json#/$defs/investigationReference"
+      }
     },
     "created_at": {
       "$ref": "common.schema.json#/$defs/isoDateTime"

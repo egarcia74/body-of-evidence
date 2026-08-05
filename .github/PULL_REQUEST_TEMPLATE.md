@@ -16,23 +16,26 @@
 For PRs that touch investigation data:
 
 - [ ] All claims are falsifiable and atomic (one assertion per claim)
-- [ ] All evidence items are tied to at least one claim (no orphans)
-- [ ] All sources have documented provenance (origin + obtained_via)
-- [ ] All assessments include a confidence rationale (not just a level)
-- [ ] Contradictory evidence is documented, not omitted
-- [ ] No existing published entities were silently edited (use Revisions)
-- [ ] All IDs follow `boe:<type>:<ulid>` format
-- [ ] All referenced IDs exist in the repository
+- [ ] Every evidence entity is referenced by at least one ClaimEvidenceLink (no orphans); polarity lives on links, never on evidence
+- [ ] All sources have documented provenance (origin + obtained_via); tier A/B sources have a SHA-256 artifact digest computed from the actual retrieved bytes
+- [ ] All assessments record conclusion, confidence (with paired label), dispute status, and a substantive rationale
+- [ ] Known contradicting links are included in assessments, not omitted
+- [ ] No published entity version file was modified — changes create a new version_id, a Revision entity, and a manifest update
+- [ ] `package.yaml` lists exactly one current version per entity and matches the files it references
+- [ ] All IDs follow `boe:<type>:<ulid>`; all version_ids are new ULIDs
 
 ## Validation
 
-- [ ] `python scripts/validate.py` passes locally
+- [ ] `python scripts/validate.py --self-test` and `python scripts/validate.py` pass locally
 
-## Conflicts of Interest
+## Declarations
 
-<!-- State any conflicts of interest with the subject of this investigation, or "none". -->
+- [ ] This PR contains no confidential material and nothing the contributors lack the right to publish
+- [ ] AI assistance is disclosed below per AI_GUIDELINES.md
 
-Conflict of interest: 
+AI assistance disclosure (or "none"): 
+
+Conflict of interest (or "none"): 
 
 ## Related Issues
 

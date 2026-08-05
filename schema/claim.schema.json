@@ -3,9 +3,17 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/claim.schema.json",
   "title": "Claim",
   "description": "A single, atomic, falsifiable assertion made within an investigation. Claims are the testable units of an investigation. Connections to evidence are expressed exclusively through ClaimEvidenceLink entities (never stored on the claim); the evidential verdict on a claim is expressed by Assessment entities that reference it. Backlinks are derived by tooling, not stored.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "investigation_id", "statement", "status", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "investigation_id",
+    "statement",
+    "status",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",

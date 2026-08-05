@@ -140,6 +140,38 @@ class TestValidFixture:
         assert passed, f"{check.__name__} failed on valid fixture:\n" + "\n".join(errors)
 
 
+class TestVersioningModel:
+    """D-009: repeated stable ids across version files are VALID (that is the
+    versioning model working); the valid fixture contains a superseded claim
+    version sharing its id with the current version to prove it."""
+
+    def test_valid_fixture_contains_multiple_versions_of_one_entity(self):
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        ids = []
+        for f in pkg.rglob("*.yaml"):
+            if f.name == "package.yaml":
+                continue
+            with open(f) as fh:
+                data = yaml.safe_load(fh)
+            if isinstance(data, dict) and "id" in data:
+                ids.append(data["id"])
+        duplicated = {i for i in ids if ids.count(i) > 1}
+        assert duplicated, (
+            "The valid fixture must contain at least one entity with multiple "
+            "version files — otherwise the D-009 workflow is never proven to validate"
+        )
+
+    def test_repeated_stable_id_with_distinct_versions_passes(self):
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        passed, errors = run_id_validation(
+            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+        )
+        assert passed, (
+            "Repeated stable id with distinct version_ids must validate:\n"
+            + "\n".join(errors)
+        )
+
+
 class TestInvalidFixtures:
     """Every invalid fixture must be rejected by at least one check."""
 
@@ -156,11 +188,12 @@ class TestInvalidFixtures:
     @pytest.mark.parametrize(
         "pkg_name,expected_check",
         [
-            ("duplicate-id", "run_id_validation"),
+            ("duplicate-version-id", "run_id_validation"),
             ("broken-reference", "run_reference_validation"),
             ("orphan-evidence", "run_orphan_validation"),
             ("missing-provenance", "run_provenance_validation"),
             ("bad-id-format", "run_id_validation"),
+            ("missing-manifest", "run_reference_validation"),
         ],
     )
     def test_invalid_fixture_rejected(self, pkg_name, expected_check):

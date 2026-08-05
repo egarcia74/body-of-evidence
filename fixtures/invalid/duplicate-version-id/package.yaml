@@ -1,0 +1,13 @@
+manifest_version: "1"
+investigation_id: "boe:investigation:01JF0000000000000000000100"
+slug: "duplicate-version-id"
+release_version: "0.1.0"
+schema_version: "0.2.0"
+methodology_version: "0.2.0"
+entities:
+  - id: "boe:investigation:01JF0000000000000000000100"
+    version_id: "01JFV000000000000000000100"
+    path: "investigation.yaml"
+  - id: "boe:claim:01JF0000000000000000000101"
+    version_id: "01JFV000000000000000000101"
+    path: "claim-a.yaml"

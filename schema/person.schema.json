@@ -3,9 +3,15 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/person.schema.json",
   "title": "Person",
   "description": "An individual who is relevant to one or more investigations. Person records hold IDENTITY and DISAMBIGUATION data only (names, dates, uncontested public roles). Any contestable assertion about a person — employment, participation, knowledge, responsibility — must be expressed as a Claim with evidence and an assessment, never stored as a profile attribute. Recording a person is a factual record of relevance, not an accusation.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "display_name", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "display_name",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -35,7 +41,9 @@
     },
     "roles": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Roles this person held relevant to the investigation (e.g., 'Director of the FBI', 'Witness', 'Source')."
     },
     "organisations": {
@@ -63,7 +71,9 @@
     },
     "investigation_ids": {
       "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/investigationReference" },
+      "items": {
+        "$ref": "common.schema.json#/$defs/investigationReference"
+      },
       "description": "Investigations this person appears in."
     },
     "tags": {

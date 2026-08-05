@@ -3,9 +3,15 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/organisation.schema.json",
   "title": "Organisation",
   "description": "An entity (government body, company, institution, committee) that is relevant to one or more investigations.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "name", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "name",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -57,8 +63,12 @@
     "active_period": {
       "type": "object",
       "properties": {
-        "start": { "$ref": "common.schema.json#/$defs/isoDate" },
-        "end": { "$ref": "common.schema.json#/$defs/isoDate" }
+        "start": {
+          "$ref": "common.schema.json#/$defs/isoDate"
+        },
+        "end": {
+          "$ref": "common.schema.json#/$defs/isoDate"
+        }
       },
       "description": "When this organisation existed or was active."
     },
@@ -69,7 +79,9 @@
     },
     "investigation_ids": {
       "type": "array",
-      "items": { "$ref": "common.schema.json#/$defs/investigationReference" }
+      "items": {
+        "$ref": "common.schema.json#/$defs/investigationReference"
+      }
     },
     "tags": {
       "$ref": "common.schema.json#/$defs/tags"

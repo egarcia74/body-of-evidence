@@ -3,9 +3,18 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/source.schema.json",
   "title": "Source",
   "description": "A primary or secondary document, recording, or artefact from which evidence is extracted. Sources have documented provenance, a type classification, and a quality tier.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "source_type", "title", "provenance", "quality_tier", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "source_type",
+    "title",
+    "provenance",
+    "quality_tier",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -51,7 +60,9 @@
     },
     "authors": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Authors, signatories, or issuing organisations."
     },
     "url": {
@@ -69,7 +80,11 @@
       "description": "Exact byte representations of this source that have been obtained and verified. Every source used to support an assessment above confidence level 2 should have at least one artifact with a digest. This is what makes 'the source said X' checkable against silent content replacement.",
       "items": {
         "type": "object",
-        "required": ["sha256", "media_type", "retrieved_at"],
+        "required": [
+          "sha256",
+          "media_type",
+          "retrieved_at"
+        ],
         "properties": {
           "sha256": {
             "type": "string",
@@ -116,7 +131,13 @@
     },
     "quality_tier": {
       "type": "string",
-      "enum": ["A", "B", "C", "D", "E"],
+      "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
       "description": "Source quality tier: A=verified_primary, B=probable_primary, C=credible_secondary, D=unverified, E=disputed."
     },
     "quality_tier_rationale": {

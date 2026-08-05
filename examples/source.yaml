@@ -22,16 +22,26 @@ archive_url: "https://web.archive.org/web/20240101000000*/https://www.intelligen
 
 # Exact byte fixity. A URL locates a source; it does not identify content.
 # The digest is what makes "the source said X" checkable against silent
-# content replacement. Example digest shown; compute from the actual bytes.
+# content replacement.
+#
+# HONESTY NOTE: the digest below is NOT the digest of the real Senate PDF.
+# It is the verifiable SHA-256 of the 44-byte synthetic string
+# "Body of Evidence synthetic example artifact\n" — shown so this example
+# never implies a verification that was not performed. For real sources,
+# compute the digest from the exact retrieved bytes:
+#   shasum -a 256 <file>
 artifacts:
-  - sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    byte_length: 24837201
-    media_type: "application/pdf"
+  - sha256: "168ef334f2896c3472aa3153ff731e2286abb82d87ff5cf6d7fc3d011d2c0ba5"
+    byte_length: 44
+    media_type: "text/plain"
     retrieved_at: "2026-08-01T00:00:00Z"
     retrieved_from: "https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
     storage_location: "https://web.archive.org/web/20240101000000/https://www.intelligence.senate.gov/sites/default/files/94755_II.pdf"
     rights: "U.S. federal government work; public domain in the United States."
-    notes: "Digest computed at retrieval; matches archive copy."
+    notes: >
+      SYNTHETIC EXAMPLE VALUE — digest of the documented example string,
+      not of the referenced PDF. Replace every field here with values
+      computed from the actual retrieved bytes.
 
 quality_tier: "A"                           # A=verified_primary | B=probable_primary | C=credible_secondary | D=unverified | E=disputed
 quality_tier_rationale: >

@@ -205,8 +205,8 @@ The MCP stub lives in `src/mcp/`. Implementation will begin in v0.3 after the da
 The validation pipeline currently checks:
 
 1. **Schema validity** — every entity validates against its JSON Schema (all errors reported, local `$ref` registry, no network resolution)
-2. **ID integrity** — no duplicate entity IDs or version_ids; IDs are genuinely valid ULIDs (charset and timestamp constraints), and the ID type prefix matches the entity type
-3. **Reference integrity** — every referenced ID resolves to an existing entity of the expected type; manifest entries match the files they point to
+2. **ID integrity** — repeated stable ids across version files are valid (that is the versioning model); version_ids are globally unique, (id, version_id) pairs are unique, IDs are genuinely valid ULIDs (charset and timestamp constraints), and the ID type prefix matches the entity type
+3. **Reference and manifest integrity** — every referenced ID resolves to an existing entity of the expected type; manifests are mandatory, path-contained (no absolute or `..` paths), internally unique, list exactly one current version per entity, match the files they reference, and agree with the package slug and Investigation entity; Revision endpoints reference existing, distinct version files. Schema-level `if/then` rules enforce confidence label/level pairing.
 4. **Orphan detection** — every evidence entity is referenced by at least one ClaimEvidenceLink
 5. **Provenance and fixity** — sources have provenance; tier A/B sources have authentication notes and at least one SHA-256 artifact digest
 6. **YAML strictness** — duplicate keys are rejected; `.yaml` and `.yml` are treated identically

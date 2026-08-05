@@ -13,9 +13,10 @@ provenance:
   obtained_date: "2026-08-01"
   authentication_notes: "Fictional fixture; digest recorded below."
 artifacts:
-  - sha256: "0000000000000000000000000000000000000000000000000000000000000001"
-    byte_length: 1024
-    media_type: "application/pdf"
+  - sha256: "d97a967ea6c2cba64bb1411c9cba7a056aec5064d04fee61f185e71be2df59dd"
+    byte_length: 30
+    media_type: "text/plain"
     retrieved_at: "2026-08-01T00:00:00Z"
     rights: "Fictional document; fixture use only."
+    notes: "Verifiable digest of the 30-byte string 'Harbourville fixture artifact\n'."
 created_at: "2026-08-04T00:00:00Z"

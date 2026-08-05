@@ -1,0 +1,15 @@
+# INVALID FIXTURE — this package has entities but no package.yaml.
+# A package without a manifest has no defined current state.
+id: "boe:investigation:01JF0000000000000000000600"
+version_id: "01JFV000000000000000000600"
+type: "investigation"
+title: "Fixture: package without a manifest"
+slug: "missing-manifest"
+status: "draft"
+scope:
+  description: "Fixture package proving manifest-less packages are rejected."
+lead_investigator:
+  identifier: "fixture-investigator"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+created_at: "2026-08-04T00:00:00Z"

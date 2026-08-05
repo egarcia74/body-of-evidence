@@ -28,7 +28,7 @@ Investigations can harm individuals — even when the findings are accurate. We 
 
 ### Source Protection
 
-Where a source has requested anonymity, we record the source's existence and provenance internally without publishing identifying information. We do not expose confidential sources in the public repository. The fact of anonymisation is itself disclosed.
+**Current operational rule: confidential material is prohibited in this repository entirely.** No private evidence vault exists yet, and public Git history cannot be reliably purged. Until a separate private system with a redaction and clearance workflow is built (see DECISIONS.md deferred items), investigations must be built exclusively from material that can be published. Where a source has requested anonymity, the correct action today is to not use that source's material at all. When a vault exists, this section will define how anonymised provenance is recorded; the fact of anonymisation will itself be disclosed. This prohibition is repeated normatively in [CONTRIBUTING.md](CONTRIBUTING.md) and the submission templates.
 
 ---
 

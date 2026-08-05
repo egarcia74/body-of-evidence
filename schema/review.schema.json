@@ -3,9 +3,19 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/review.schema.json",
   "title": "Review",
   "description": "A formal peer review of an investigation, finding, or claim. Reviews are part of the permanent record of an investigation. They can endorse, correct, or formally challenge content.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "object",
-  "required": ["id", "version_id", "type", "subject_id", "subject_type", "review_type", "reviewer", "outcome", "created_at"],
+  "required": [
+    "id",
+    "version_id",
+    "type",
+    "subject_id",
+    "subject_type",
+    "review_type",
+    "reviewer",
+    "outcome",
+    "created_at"
+  ],
   "properties": {
     "id": {
       "$ref": "common.schema.json#/$defs/boeId",
@@ -25,7 +35,12 @@
     },
     "subject_type": {
       "type": "string",
-      "enum": ["investigation", "claim", "finding", "assessment"],
+      "enum": [
+        "investigation",
+        "claim",
+        "finding",
+        "assessment"
+      ],
       "description": "The type of the entity being reviewed."
     },
     "review_type": {
@@ -68,7 +83,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["concern", "severity"],
+        "required": [
+          "concern",
+          "severity"
+        ],
         "properties": {
           "concern": {
             "type": "string",
@@ -76,7 +94,12 @@
           },
           "severity": {
             "type": "string",
-            "enum": ["critical", "major", "minor", "informational"]
+            "enum": [
+              "critical",
+              "major",
+              "minor",
+              "informational"
+            ]
           },
           "referenced_entity_id": {
             "type": "string",
@@ -99,9 +122,15 @@
       "type": "object",
       "description": "The lead investigator's response to this review.",
       "properties": {
-        "responder": { "$ref": "common.schema.json#/$defs/contributor" },
-        "response_text": { "type": "string" },
-        "responded_at": { "$ref": "common.schema.json#/$defs/isoDateTime" }
+        "responder": {
+          "$ref": "common.schema.json#/$defs/contributor"
+        },
+        "response_text": {
+          "type": "string"
+        },
+        "responded_at": {
+          "$ref": "common.schema.json#/$defs/isoDateTime"
+        }
       },
       "additionalProperties": false
     },

@@ -78,13 +78,20 @@ Before submitting evidence or assessments related to an investigation, you must 
 
 ---
 
+## Confidential Material Is Prohibited
+
+This is a public repository with permanent, effectively unpurgeable history. Until a private evidence vault with a redaction workflow exists (it does not yet), the following must never be submitted in any form: material from confidential sources, documents you are not legally permitted to publish, personal data about private individuals beyond what an investigation's public-interest scope strictly requires, or anything whose disclosure could endanger a person. If you are unsure, do not submit — open a Discussion describing the situation in general terms instead. This rule is normative: violating it is grounds for immediate removal of the contribution and a ban under the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## What Will Not Be Merged
 
 - Claims that are not falsifiable
 - Evidence without documented provenance
-- Assessments without a confidence rationale
-- Edits that silently change historical conclusions
+- Tier A/B sources without a SHA-256 artifact digest
+- Assessments without a conclusion, confidence, dispute status, and substantive rationale
+- Edits that modify a published entity version file (create a new version + Revision + manifest update instead)
+- Confidential material of any kind (see above)
 - Contributions from accounts with undisclosed conflicts of interest
+- AI-generated evidence, citations, or confidence levels (see [AI_GUIDELINES.md](AI_GUIDELINES.md))
 - Content that does not meet the [STYLE_GUIDE.md](STYLE_GUIDE.md)
 - New investigations without an identified lead investigator
 

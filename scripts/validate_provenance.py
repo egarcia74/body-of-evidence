@@ -48,15 +48,18 @@ def validate_source(yaml_file: Path, data: dict) -> list[str]:
                 f"the source's content"
             )
 
+    # Tier D/E are NOT errors — a disputed source is a legitimate, explicitly
+    # uncertain part of the record. They are printed as advisories so the
+    # confidence-ceiling rules are visible, but they never fail validation.
     if quality_tier == "D":
-        errors.append(
-            f"{ctx}: WARNING: quality_tier D (unverified) — cannot support "
-            f"confidence above 2 (weak)"
+        print(
+            f"    ADVISORY: {ctx}: quality_tier D (unverified) — cannot "
+            f"support confidence above 2 (weak)"
         )
     elif quality_tier == "E":
-        errors.append(
-            f"{ctx}: WARNING: quality_tier E (disputed) — cannot support "
-            f"a 'supported' conclusion"
+        print(
+            f"    ADVISORY: {ctx}: quality_tier E (disputed) — cannot "
+            f"support a 'supported' conclusion"
         )
 
     return errors

@@ -3,7 +3,7 @@
   "$id": "https://github.com/your-org/body-of-evidence/schema/common.schema.json",
   "title": "Body of Evidence — Common Definitions",
   "description": "Shared definitions reused across all Body of Evidence entity schemas.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "$defs": {
     "boeId": {
       "type": "string",
@@ -19,7 +19,11 @@
       "type": "string",
       "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
       "description": "A date in ISO 8601 format: YYYY, YYYY-MM, or YYYY-MM-DD.",
-      "examples": ["2023-11-22", "2023-11", "2023"]
+      "examples": [
+        "2023-11-22",
+        "2023-11",
+        "2023"
+      ]
     },
     "isoDateTime": {
       "type": "string",
@@ -34,17 +38,33 @@
     },
     "confidenceLabel": {
       "type": "string",
-      "enum": ["speculative", "weak", "moderate", "strong", "near_certain"],
+      "enum": [
+        "speculative",
+        "weak",
+        "moderate",
+        "strong",
+        "near_certain"
+      ],
       "description": "Human-readable label corresponding to the confidence level. Must pair with the numeric level: 1=speculative, 2=weak, 3=moderate, 4=strong, 5=near_certain."
     },
     "conclusion": {
       "type": "string",
-      "enum": ["supported", "contradicted", "mixed", "insufficient", "not_assessed"],
+      "enum": [
+        "supported",
+        "contradicted",
+        "mixed",
+        "insufficient",
+        "not_assessed"
+      ],
       "description": "The assessed direction of the evidence relative to the claim, separate from confidence. 'mixed' means credible evidence exists on multiple sides; 'insufficient' means the available evidence cannot resolve the claim."
     },
     "disputeStatus": {
       "type": "string",
-      "enum": ["undisputed", "disputed", "unresolved"],
+      "enum": [
+        "undisputed",
+        "disputed",
+        "unresolved"
+      ],
       "description": "Whether the assessment is subject to an active formal challenge. Separate from confidence: a high-confidence assessment can still be disputed."
     },
     "ulid": {
@@ -59,7 +79,12 @@
     },
     "lifecycleStatus": {
       "type": "string",
-      "enum": ["draft", "review", "published", "archived"],
+      "enum": [
+        "draft",
+        "review",
+        "published",
+        "archived"
+      ],
       "description": "The lifecycle state of an entity version. Note: there is no 'superseded' status — supersession is a property of the package manifest (an old version simply stops being listed as current), never a mutation of the old entity file."
     },
     "investigationReference": {
@@ -84,7 +109,9 @@
     },
     "contributor": {
       "type": "object",
-      "required": ["identifier"],
+      "required": [
+        "identifier"
+      ],
       "properties": {
         "identifier": {
           "type": "string",
@@ -92,7 +119,12 @@
         },
         "role": {
           "type": "string",
-          "enum": ["lead_investigator", "contributor", "reviewer", "challenger"],
+          "enum": [
+            "lead_investigator",
+            "contributor",
+            "reviewer",
+            "challenger"
+          ],
           "description": "The contributor's role in relation to this entity."
         },
         "conflict_of_interest": {
@@ -105,7 +137,10 @@
     },
     "provenance": {
       "type": "object",
-      "required": ["origin", "obtained_via"],
+      "required": [
+        "origin",
+        "obtained_via"
+      ],
       "properties": {
         "origin": {
           "type": "string",

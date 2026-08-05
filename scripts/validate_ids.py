@@ -2,13 +2,21 @@
 """
 Body of Evidence — ID Validation
 
+The versioning model (D-009): an entity's stable `id` is SHARED by every
+version of that entity; each version file carries a unique `version_id`.
+A repeated stable id across files is therefore NORMAL — it is how history
+is kept. What must be unique is the (id, version_id) pair and the
+version_id globally. Which version is current is the manifest's job
+(checked in validate_references), not this validator's.
+
 Checks:
 1. All entity IDs match boe:<type>:<ulid> with a genuinely valid ULID
    (Crockford Base32 charset AND a first character in 0–7, since the
    48-bit ULID timestamp cannot start higher).
-2. All version_ids are valid ULIDs.
-3. No duplicate entity IDs across the scanned scope.
-4. No duplicate version_ids across the scanned scope.
+2. All version_ids are valid ULIDs and globally unique.
+3. Files sharing a stable id declare the same entity type (guaranteed
+   by the type prefix embedded in the id, checked per file).
+4. No two files carry the same (id, version_id) pair.
 5. The type prefix in the ID matches the entity's 'type' field.
 """
 
@@ -49,8 +57,9 @@ def run_id_validation(
     verbose: bool = False,
 ) -> Tuple[bool, List[str]]:
     all_errors = []
-    seen_ids = {}
-    seen_versions = {}
+    seen_versions = {}       # version_id -> path (must be globally unique)
+    seen_pairs = {}          # (id, version_id) -> path (a file duplicated verbatim)
+    id_types = {}            # id -> (type, first path) (all versions must agree on type)
 
     for yaml_file, data in iter_entities(investigation_paths):
         entity_id = data.get("id")
@@ -73,27 +82,47 @@ def run_id_validation(
                 f"entity type '{entity_type}' (ID: {entity_id})"
             )
 
-        if version_id:
-            ok, err = validate_ulid(version_id)
-            if not ok:
-                all_errors.append(f"{yaml_file}: version_id {err}")
-            elif version_id in seen_versions:
+        # Repeated stable ids are the versioning model working as designed —
+        # but every version sharing an id must be the same entity type.
+        if entity_id in id_types:
+            prev_type, prev_path = id_types[entity_id]
+            if entity_type and prev_type and entity_type != prev_type:
                 all_errors.append(
-                    f"{yaml_file}: Duplicate version_id '{version_id}' "
-                    f"(first seen in {seen_versions[version_id]})"
+                    f"{yaml_file}: Entity id '{entity_id}' used with type "
+                    f"'{entity_type}' but '{prev_type}' in {prev_path}"
                 )
-            else:
-                seen_versions[version_id] = yaml_file
+        else:
+            id_types[entity_id] = (entity_type, yaml_file)
 
-        if entity_id in seen_ids:
+        if not version_id:
             all_errors.append(
-                f"{yaml_file}: Duplicate ID '{entity_id}' "
-                f"(first seen in {seen_ids[entity_id]})"
+                f"{yaml_file}: Missing 'version_id' — every entity version "
+                f"needs one (schema requires it)"
+            )
+            continue
+
+        ok, err = validate_ulid(version_id)
+        if not ok:
+            all_errors.append(f"{yaml_file}: version_id {err}")
+            continue
+
+        pair = (entity_id, version_id)
+        if pair in seen_pairs:
+            all_errors.append(
+                f"{yaml_file}: Duplicate entity version ({entity_id} @ "
+                f"{version_id}) — first seen in {seen_pairs[pair]}"
+            )
+        elif version_id in seen_versions:
+            all_errors.append(
+                f"{yaml_file}: Duplicate version_id '{version_id}' "
+                f"(first seen in {seen_versions[version_id]}) — version_ids "
+                f"are globally unique, even across different entities"
             )
         else:
-            seen_ids[entity_id] = yaml_file
+            seen_pairs[pair] = yaml_file
+            seen_versions[version_id] = yaml_file
             if verbose:
-                print(f"    OK: {entity_id}")
+                print(f"    OK: {entity_id} @ {version_id}")
 
     return len(all_errors) == 0, all_errors
 

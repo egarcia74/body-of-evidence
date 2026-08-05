@@ -2,7 +2,7 @@
 id: "boe:claim:01JFILLEGALULIDOOOOOOOO001"
 version_id: "01JFV000000000000000000501"
 type: "claim"
-investigation_id: "boe:investigation:01JF0000000000000000000001"
+investigation_id: "boe:investigation:01JF0000000000000000000500"
 status: "draft"
 statement: "Fixture claim whose identifier is not a valid ULID."
 created_at: "2026-08-04T00:00:00Z"
