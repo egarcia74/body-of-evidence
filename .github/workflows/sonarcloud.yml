@@ -27,17 +27,14 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
+      # Informational only during pre-alpha baselining: the scan reports to
+      # SonarQube Cloud without failing CI on the quality gate. To promote
+      # the gate to a hard check once the baseline is clean, set
+      # `sonar.qualitygate.wait=true` in sonar-project.properties (the
+      # separate sonarqube-quality-gate-action is not supported for Cloud).
       - name: SonarQube Cloud scan
         uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402 # v4.2.2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      # Informational only during pre-alpha baselining: report the quality
-      # gate result without failing CI. Promote this to a required branch
-      # protection check once the first scan's baseline is clean.
-      - name: Quality gate status (informational)
-        uses: SonarSource/sonarqube-quality-gate-action@7a5fffe8e523c40e0c740b6bc2712ab503e52efa # v1.2.1
-        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
