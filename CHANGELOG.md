@@ -91,5 +91,5 @@ Schema version 0.2.0. Breaking changes; no migration needed (no investigation da
 
 ---
 
-[Unreleased]: https://github.com/your-org/body-of-evidence/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/your-org/body-of-evidence/releases/tag/v0.1.0
+[Unreleased]: https://github.com/egarcia74/body-of-evidence/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/egarcia74/body-of-evidence/releases/tag/v0.1.0

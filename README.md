@@ -101,7 +101,7 @@ Browse `investigations/` to explore published investigations. Each investigation
 ### As a Developer
 
 ```bash
-git clone https://github.com/your-org/body-of-evidence
+git clone https://github.com/egarcia74/body-of-evidence
 cd body-of-evidence
 pip install -r scripts/requirements.txt
 python scripts/validate.py

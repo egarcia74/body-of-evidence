@@ -26,7 +26,7 @@ There are no tagged releases yet. Security-relevant fixes land on `main`.
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Report security vulnerabilities by emailing the maintainer team. The email address for security disclosures will be added when the maintainer team is established. In the interim, open a private security advisory via GitHub's security advisory feature (Security → Advisories → New draft security advisory).
+Report security vulnerabilities via [GitHub private vulnerability reporting](https://github.com/egarcia74/body-of-evidence/security/advisories/new) (Security tab → Report a vulnerability). This repository has private vulnerability reporting enabled — the report is visible only to the maintainer until a fix is ready.
 
 Include:
 

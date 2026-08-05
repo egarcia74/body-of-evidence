@@ -6,22 +6,22 @@
 # Format: <pattern> <owner1> <owner2> ...
 
 # Default owner for everything not matched below
-*                               @your-org/maintainers
+*                               @egarcia74
 
 # Schema changes require maintainer review (two reviewers)
-schema/                         @your-org/maintainers
-schema/common.schema.json       @your-org/maintainers
+schema/                         @egarcia74
+schema/common.schema.json       @egarcia74
 
 # Core platform documentation
-ARCHITECTURE.md                 @your-org/maintainers
-METHODOLOGY.md                  @your-org/maintainers
-GOVERNANCE.md                   @your-org/maintainers
-DECISIONS.md                    @your-org/maintainers
+ARCHITECTURE.md                 @egarcia74
+METHODOLOGY.md                  @egarcia74
+GOVERNANCE.md                   @egarcia74
+DECISIONS.md                    @egarcia74
 
 # CI/CD configuration
-.github/                        @your-org/maintainers
-scripts/                        @your-org/maintainers
+.github/                        @egarcia74
+scripts/                        @egarcia74
 
 # Investigations — per-investigation ownership is set in each investigation's
 # investigation.yaml lead_investigator field. This is a fallback.
-investigations/                 @your-org/maintainers
+investigations/                 @egarcia74

@@ -12,8 +12,8 @@ abstract: >
 version: "0.2.0-pre-alpha"
 date-released: "2026-08-05"
 license: Apache-2.0
-repository-code: "https://github.com/your-org/body-of-evidence"
-url: "https://github.com/your-org/body-of-evidence"
+repository-code: "https://github.com/egarcia74/body-of-evidence"
+url: "https://github.com/egarcia74/body-of-evidence"
 keywords:
   - evidence
   - investigations

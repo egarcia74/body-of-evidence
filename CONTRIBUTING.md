@@ -106,7 +106,7 @@ This is a public repository with permanent, effectively unpurgeable history. Unt
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/body-of-evidence
+git clone https://github.com/egarcia74/body-of-evidence
 cd body-of-evidence
 
 # Install validation dependencies
@@ -123,4 +123,4 @@ python scripts/validate.py --investigation <slug>
 
 ## Questions
 
-Open a [Discussion](https://github.com/your-org/body-of-evidence/discussions) rather than an issue if you have a question about methodology, scope, or process. Issues are for actionable work items.
+Open a [Discussion](https://github.com/egarcia74/body-of-evidence/discussions) rather than an issue if you have a question about methodology, scope, or process. Issues are for actionable work items.
