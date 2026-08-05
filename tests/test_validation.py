@@ -1071,12 +1071,15 @@ class TestUnreadableSubtreeFailsClosed:
             f"{check_fn.__module__}: an unreadable subtree must fail this "
             f"check on its own, not silently pass"
         )
-        codes = sorted((e.code, e.validator) for e in errors)
+        # Exact (validator, code, path, location) tuples — the same shape
+        # TestInvalidFixtures uses — not just membership, so an extra or
+        # duplicated diagnostic would be caught too (CodeRabbit finding).
+        actual = sorted((e.validator, e.code, e.path, e.location) for e in errors)
         expected_validator = check_fn.__module__.replace("validate_", "", 1)
-        assert codes == [("PACKAGE_SUBTREE_UNREADABLE", expected_validator)], (
+        assert actual == [(expected_validator, "PACKAGE_SUBTREE_UNREADABLE", str(locked), "")], (
             f"{check_fn.__module__}: expected exactly one "
             f"PACKAGE_SUBTREE_UNREADABLE diagnostic under its own validator "
-            f"name, got: {codes}"
+            f"name, got: {actual}"
         )
 
     @pytest.mark.parametrize("check_fn", ALL_CHECKS, ids=lambda f: f.__module__)
@@ -1099,12 +1102,12 @@ class TestUnreadableSubtreeFailsClosed:
             f"{check_fn.__module__}: a symlinked package root must fail this "
             f"check on its own, not silently pass"
         )
-        codes = sorted((e.code, e.validator) for e in errors)
+        actual = sorted((e.validator, e.code, e.path, e.location) for e in errors)
         expected_validator = check_fn.__module__.replace("validate_", "", 1)
-        assert codes == [("INVESTIGATION_ROOT_SYMLINK", expected_validator)], (
+        assert actual == [(expected_validator, "INVESTIGATION_ROOT_SYMLINK", str(symlinked_root), "")], (
             f"{check_fn.__module__}: expected exactly one "
             f"INVESTIGATION_ROOT_SYMLINK diagnostic under its own validator "
-            f"name, got: {codes}"
+            f"name, got: {actual}"
         )
 
 
