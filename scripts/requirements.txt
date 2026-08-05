@@ -13,7 +13,7 @@ referencing==0.37.0
 
 # ULID generation (used by contributors creating new entities)
 # Usage: python3 -c "from ulid import ULID; print(ULID())"
-python-ulid==2.7.0
+python-ulid==4.0.1
 
 # Test runner (used by CI)
 # 9.0.3 fixes GHSA-6w46-j5rx-g56g (tmpdir/tmp_path symlink-attack advisory)
