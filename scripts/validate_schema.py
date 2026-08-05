@@ -13,7 +13,10 @@ import json
 from pathlib import Path
 from typing import List, Tuple
 
-from boe_files import Diagnostic, find_entity_files, find_manifest, traversal_error_diagnostics, load_yaml
+from boe_files import (
+    Diagnostic, find_entity_files, find_manifest, load_yaml,
+    symlinked_root_diagnostics, traversal_error_diagnostics,
+)
 
 try:
     from jsonschema import Draft202012Validator
@@ -77,11 +80,12 @@ def run_schema_validation(
         )]
 
     registry = build_registry(schema_dir)
-    # A subtree os.walk could not list must not let this check certify a
-    # package it did not completely inspect (eighth-pass review M-22
-    # follow-up: fail-closed traversal must cover every validator that
-    # walks entity files, not just references).
-    all_errors = traversal_error_diagnostics(investigation_paths, VALIDATOR)
+    # A symlinked root or an unreadable subtree must not let this check
+    # certify a package it did not completely inspect (eighth-pass review
+    # M-22 follow-up: fail-closed traversal/root-rejection must cover
+    # every validator that walks entity files, not just references).
+    all_errors = symlinked_root_diagnostics(investigation_paths, VALIDATOR)
+    all_errors += traversal_error_diagnostics(investigation_paths, VALIDATOR)
     validated = 0
 
     # Entity files

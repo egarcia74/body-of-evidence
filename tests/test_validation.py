@@ -270,10 +270,19 @@ class TestInvalidFixtures:
                 # A tracked symlink AT the package-directory level (not an
                 # entity path inside one) — fifth-pass review H-15. Every
                 # validator refuses to descend into it (boe_files skips a
-                # symlinked root entirely); references reports the precise
-                # root cause, schema reports the resulting empty run.
+                # symlinked root entirely) AND now reports it explicitly,
+                # each under its own validator name (PR #13 review
+                # follow-up to eighth-pass M-22: a validator that only saw
+                # zero files for a symlinked root used to pass vacuously
+                # instead of explaining why — schema was the sole
+                # exception, via its pre-existing SCHEMA_VACUOUS_RUN
+                # fallback, which no longer fires now that all_errors is
+                # non-empty before that check runs).
+                ("schema", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
+                ("ids", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
                 ("references", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
-                ("schema", "SCHEMA_VACUOUS_RUN", "<repo>", ""),
+                ("orphans", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
+                ("provenance", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
             ]),
             ("unmanifested-symlink", [
                 # sixth-pass review H-19: a symlinked entity file that is
@@ -1042,7 +1051,11 @@ class TestUnreadableSubtreeFailsClosed:
         inspected package on its own. Every run_*_validation function must
         independently fail closed, not just references — this proves it
         for all five."""
-        pkg = tmp_path / "pkg"
+        # Named to match the fixture's manifest slug — an arbitrary
+        # destination name (as the looser test above uses) would also
+        # legitimately produce MANIFEST_SLUG_MISMATCH, which this test's
+        # exact assertion must not have to account for.
+        pkg = tmp_path / "harbour-tender-inquiry"
         shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
         locked = pkg / "locked-subdir"
         locked.mkdir()
@@ -1058,9 +1071,40 @@ class TestUnreadableSubtreeFailsClosed:
             f"{check_fn.__module__}: an unreadable subtree must fail this "
             f"check on its own, not silently pass"
         )
-        assert any(e.code == "PACKAGE_SUBTREE_UNREADABLE" for e in errors), (
-            f"{check_fn.__module__}: expected a PACKAGE_SUBTREE_UNREADABLE "
-            f"diagnostic, got: {[str(e) for e in errors]}"
+        codes = sorted((e.code, e.validator) for e in errors)
+        expected_validator = check_fn.__module__.replace("validate_", "", 1)
+        assert codes == [("PACKAGE_SUBTREE_UNREADABLE", expected_validator)], (
+            f"{check_fn.__module__}: expected exactly one "
+            f"PACKAGE_SUBTREE_UNREADABLE diagnostic under its own validator "
+            f"name, got: {codes}"
+        )
+
+    @pytest.mark.parametrize("check_fn", ALL_CHECKS, ids=lambda f: f.__module__)
+    def test_every_single_check_fails_closed_on_symlinked_root(self, tmp_path, check_fn):
+        """Same class of gap as the unreadable-subtree test above, but at
+        the package ROOT rather than a subtree: find_entity_files silently
+        skips a symlinked investigation root entirely (by design), so a
+        validator that only calls find_entity_files/iter_entities saw zero
+        files for that path and passed VACUOUSLY — only references had its
+        own INVESTIGATION_ROOT_SYMLINK check. This proves the other four
+        now reject it too, each under its own validator name."""
+        real_target = tmp_path / "_outside"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", real_target)
+        symlinked_root = tmp_path / "alias"
+        symlinked_root.symlink_to(real_target, target_is_directory=True)
+
+        passed, errors = check_fn(investigation_paths=[symlinked_root], schema_dir=SCHEMA_DIR, verbose=False)
+
+        assert not passed, (
+            f"{check_fn.__module__}: a symlinked package root must fail this "
+            f"check on its own, not silently pass"
+        )
+        codes = sorted((e.code, e.validator) for e in errors)
+        expected_validator = check_fn.__module__.replace("validate_", "", 1)
+        assert codes == [("INVESTIGATION_ROOT_SYMLINK", expected_validator)], (
+            f"{check_fn.__module__}: expected exactly one "
+            f"INVESTIGATION_ROOT_SYMLINK diagnostic under its own validator "
+            f"name, got: {codes}"
         )
 
 

@@ -161,6 +161,36 @@ def traversal_error_diagnostics(investigation_paths: list[Path], validator: str)
     return diagnostics
 
 
+def symlinked_root_diagnostics(investigation_paths: list[Path], validator: str) -> list[Diagnostic]:
+    """
+    A package ROOT that is itself a symlink, as ready-to-use Diagnostics
+    for the given validator.
+
+    find_entity_files (and therefore iter_entities) silently skips a
+    symlinked investigation root entirely — by design, see its docstring —
+    which means a validator that only calls find_entity_files/iter_entities
+    just sees zero files for that path and passes VACUOUSLY, with no
+    diagnostic explaining why. `run_reference_validation` has always
+    reported this itself (INVESTIGATION_ROOT_SYMLINK) because it also
+    needs the filtered path list for later steps; the other four
+    validators had no equivalent check at all until this helper (PR #13
+    review follow-up, same class of gap as traversal_error_diagnostics: a
+    standalone `--check schema`/`ids`/`orphans`/`provenance` run could
+    silently certify a symlinked package root it never actually looked
+    at).
+    """
+    diagnostics = []
+    for inv_path in investigation_paths:
+        if inv_path.is_symlink():
+            diagnostics.append(Diagnostic(
+                "INVESTIGATION_ROOT_SYMLINK", validator, str(inv_path),
+                f"{inv_path}: package root is a symlink — symlinked package "
+                f"roots are prohibited (they can point anywhere on disk, "
+                f"bypassing every per-path containment check)",
+            ))
+    return diagnostics
+
+
 def find_manifest(investigation_path: Path) -> Optional[Path]:
     """The package manifest for an investigation, if present. A symlinked
     investigation root has no manifest by definition (see find_entity_files).
