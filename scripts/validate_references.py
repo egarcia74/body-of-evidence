@@ -37,7 +37,7 @@ validating nothing.
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import Diagnostic, iter_entities, find_manifest, find_all_symlinks, find_traversal_errors, load_yaml
+from boe_files import Diagnostic, find_all_symlinks, find_manifest, iter_entities, load_yaml, traversal_error_diagnostics
 
 VALIDATOR = "references"
 
@@ -627,15 +627,9 @@ def run_reference_validation(
     # closed, not silently skipped (eighth-pass review M-22): a package
     # cannot be certified when part of it was never actually inspected —
     # an unreadable directory could just as easily be hiding a prohibited
-    # symlink or a policy-violating entity file.
-    for inv_path, exc in find_traversal_errors(real_investigation_paths):
-        failed_dir = getattr(exc, "filename", None) or inv_path
-        all_errors.append(_err(
-            "PACKAGE_SUBTREE_UNREADABLE", failed_dir,
-            f"{failed_dir}: could not list directory contents ({exc}) — a "
-            f"package cannot be certified when part of it was not "
-            f"inspectable"
-        ))
+    # symlink or a policy-violating entity file. Every validator does this
+    # (see boe_files.traversal_error_diagnostics), not just this one.
+    all_errors.extend(traversal_error_diagnostics(real_investigation_paths, VALIDATOR))
 
     # Pass 1: index all defined IDs and versions. id_index is a MULTIMAP —
     # a stable id can legitimately appear in more than one file (D-009

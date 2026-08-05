@@ -16,7 +16,7 @@ warning only (unassessed evidence is normal during drafting).
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import Diagnostic, iter_entities
+from boe_files import Diagnostic, iter_entities, traversal_error_diagnostics
 
 VALIDATOR = "orphans"
 
@@ -26,7 +26,11 @@ def run_orphan_validation(
     schema_dir: Path,
     verbose: bool = False,
 ) -> Tuple[bool, List[Diagnostic]]:
-    all_errors = []
+    # A subtree os.walk could not list must not let this check certify a
+    # package it did not completely inspect (eighth-pass review M-22
+    # follow-up: fail-closed traversal must cover every validator that
+    # walks entity files, not just references).
+    all_errors = traversal_error_diagnostics(investigation_paths, VALIDATOR)
     evidence_files = {}       # evidence_id -> path
     linked_evidence = set()   # evidence_ids referenced by at least one link
 

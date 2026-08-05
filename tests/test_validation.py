@@ -1031,6 +1031,38 @@ class TestUnreadableSubtreeFailsClosed:
             f"Expected a PACKAGE_SUBTREE_UNREADABLE diagnostic, got: {[str(e) for e in errors]}"
         )
 
+    @pytest.mark.parametrize("check_fn", ALL_CHECKS, ids=lambda f: f.__module__)
+    def test_every_single_check_fails_closed_on_unreadable_subtree(self, tmp_path, check_fn):
+        """Follow-up finding (automated review, post-M-22): the initial fix
+        only wired find_traversal_errors into run_reference_validation. A
+        standalone invocation of any OTHER check — e.g. `--check schema` —
+        still walked entity files via find_entity_files/iter_entities,
+        which silently omits an unreadable subtree the same way
+        find_all_symlinks did, and so could certify an incompletely-
+        inspected package on its own. Every run_*_validation function must
+        independently fail closed, not just references — this proves it
+        for all five."""
+        pkg = tmp_path / "pkg"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
+        locked = pkg / "locked-subdir"
+        locked.mkdir()
+        locked.chmod(0o000)
+        try:
+            if list_dir_is_readable(locked):
+                pytest.skip("Directory permissions did not block traversal in this environment (e.g. running as root)")
+            passed, errors = check_fn(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
+        finally:
+            locked.chmod(0o755)  # restore so pytest can clean up tmp_path
+
+        assert not passed, (
+            f"{check_fn.__module__}: an unreadable subtree must fail this "
+            f"check on its own, not silently pass"
+        )
+        assert any(e.code == "PACKAGE_SUBTREE_UNREADABLE" for e in errors), (
+            f"{check_fn.__module__}: expected a PACKAGE_SUBTREE_UNREADABLE "
+            f"diagnostic, got: {[str(e) for e in errors]}"
+        )
+
 
 def list_dir_is_readable(path: Path) -> bool:
     """True if listing `path` succeeds despite an attempted chmod(0o000) —

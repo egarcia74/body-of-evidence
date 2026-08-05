@@ -134,6 +134,33 @@ def find_traversal_errors(investigation_paths: list[Path]) -> list[tuple[Path, O
     return result
 
 
+def traversal_error_diagnostics(investigation_paths: list[Path], validator: str) -> list[Diagnostic]:
+    """
+    Every unreadable subtree from find_traversal_errors, as ready-to-use
+    Diagnostics for the given validator.
+
+    EVERY validator that walks entity files (i.e. every one of them, via
+    find_entity_files/iter_entities) must include these in its own error
+    list. Without this, a single-check invocation such as
+    `--check schema` or `--check ids` can still certify a package it did
+    not completely inspect, even though run_reference_validation already
+    fails closed on the same package — the M-22 fix only helps a consumer
+    that actually calls it (eighth-pass review follow-up, flagged by
+    automated review after the initial M-22 fix landed only in
+    validate_references.py).
+    """
+    diagnostics = []
+    for inv_path, exc in find_traversal_errors(investigation_paths):
+        failed_dir = getattr(exc, "filename", None) or inv_path
+        diagnostics.append(Diagnostic(
+            "PACKAGE_SUBTREE_UNREADABLE", validator, str(failed_dir),
+            f"{failed_dir}: could not list directory contents ({exc}) — "
+            f"a package cannot be certified when part of it was not "
+            f"inspectable",
+        ))
+    return diagnostics
+
+
 def find_manifest(investigation_path: Path) -> Optional[Path]:
     """The package manifest for an investigation, if present. A symlinked
     investigation root has no manifest by definition (see find_entity_files).
