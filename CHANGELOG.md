@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Added — CI/PR quality gates (2026-08-06, D-022)
+
+- `main` now requires pull requests (branch protection, `enforce_admins: true` — no owner bypass); direct pushes are no longer possible
+- CodeRabbit GitHub App authorized on all repos; every PR now gets an automatic review in addition to the pre-existing local `/code-review` pre-push check
+- SonarQube Cloud wired into CI (`.github/workflows/sonarcloud.yml`, `sonar-project.properties`); scans `scripts/` and `tests/`, excludes `fixtures/`/`examples/` (deliberately-invalid/generated content); quality gate result is reported but not yet a required check (no scan baseline exists yet)
+- Dependabot version updates enabled (`.github/dependabot.yml`, weekly) for pip (`scripts/requirements.txt`) and GitHub Actions versions, on top of the pre-existing vulnerability alerts
+
 ### Changed — response to seventh-pass review (2026-08-05, D-021)
 
 - References must now resolve against each package's manifest CURRENT-entity map, not merely against "a file with this id exists somewhere in the package" — manifests are parsed before ordinary reference validation runs; a reference to an unmanifested/superseded entity now fails with `REF_NOT_CURRENT`

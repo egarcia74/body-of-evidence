@@ -1,0 +1,40 @@
+name: SonarQube Cloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  sonarcloud:
+    name: SonarQube Cloud scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Secrets aren't available to PRs from forks, NOR to Dependabot-triggered
+    # pull_request runs (GitHub treats those like fork PRs for secret access
+    # even though they're same-repo) — skip both rather than fail on a
+    # missing SONAR_TOKEN. Lint/Validate/CodeRabbit still run on these PRs;
+    # only the Sonar scan is skipped.
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      # All actions pinned to full commit SHAs per GitHub secure-use
+      # guidance (the `# vX.Y.Z` comments record the tag each SHA matches).
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Informational only during pre-alpha baselining: the scan reports to
+      # SonarQube Cloud without failing CI on the quality gate. To promote
+      # the gate to a hard check once the baseline is clean, set
+      # `sonar.qualitygate.wait=true` in sonar-project.properties (the
+      # separate sonarqube-quality-gate-action is not supported for Cloud).
+      - name: SonarQube Cloud scan
+        uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402 # v4.2.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
