@@ -1,0 +1,9 @@
+---
+# Codacy Cloud configuration (see https://docs.codacy.com/repositories-configure/codacy-configuration-file/)
+# Mirrors the local per-tool exclusion in .codacy/codacy.config.json:
+# Bandit flags pytest `assert` (B101) and deliberate subprocess use in CLI
+# integration tests as false positives; coverage stays active for scripts/.
+engines:
+  bandit:
+    exclude_paths:
+      - "tests/**"
