@@ -61,3 +61,8 @@ validation-report.txt
 
 # Sandbox delete workaround — this file is removed from tracking; delete manually
 .trash-init-repo.command
+
+# Codacy: VS Code extension AI rules + local analysis config (synced from
+# Codacy Cloud / codacy-analysis CLI; committing it has no effect on Cloud)
+.github/instructions/codacy.instructions.md
+.codacy/
