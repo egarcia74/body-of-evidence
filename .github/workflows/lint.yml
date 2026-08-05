@@ -37,7 +37,7 @@ jobs:
       # Uses the repository's .markdownlint.jsonc policy — see that file
       # for the deliberate rule scoping rationale
       - name: Lint Markdown
-        uses: DavidAnson/markdownlint-cli2-action@v16
+        uses: DavidAnson/markdownlint-cli2-action@v24
         with:
           globs: "**/*.md"
 
