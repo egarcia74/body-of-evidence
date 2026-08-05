@@ -9,7 +9,7 @@ pyyaml==6.0.3
 
 # JSON Schema validation (draft 2020-12) + local $ref registry
 jsonschema==4.26.0
-referencing==0.35.1
+referencing==0.37.0
 
 # ULID generation (used by contributors creating new entities)
 # Usage: python3 -c "from ulid import ULID; print(ULID())"
