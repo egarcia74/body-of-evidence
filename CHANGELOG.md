@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to fourth-pass review (2026-08-05, D-018)
+
+- All validators now emit structured diagnostics (`code`, `validator`, `path`, `message`) instead of free-form strings; fixture tests assert the exact `(validator, code)` set per invalid fixture across all checks, not a substring in one named check (the tracked manifest-symlink-escape fixture's previously-unnoticed second diagnostic is now declared explicitly)
+- Revision transition validation is now package-scoped: an endpoint version file owned by a different package than the Revision itself is rejected (new `REVISION_ENDPOINT_WRONG_PACKAGE` diagnostic), proven by a dedicated two-package fixture pair validated together
+- Manifest path containment now rejects a symlink anywhere between the package root and the entity file, not just the final path component, matching the documented no-symlink policy
+- 25 tests (was 23)
+
 ### Changed — response to third-pass review (2026-08-05, D-017)
 
 - Revision transition validation: endpoints must belong to the revised entity and match its type; superseded versions cannot remain current (rich version index replaces the lossy one — the reviewer's unrelated-endpoints probe now fails as intended)

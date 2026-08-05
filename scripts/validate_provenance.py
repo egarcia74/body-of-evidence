@@ -14,39 +14,47 @@ Checks that Source entities have complete provenance and byte-level fixity:
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import iter_entities
+from boe_files import Diagnostic, iter_entities
+
+VALIDATOR = "provenance"
 
 
-def validate_source(yaml_file: Path, data: dict) -> list[str]:
+def _err(code: str, path, message: str) -> Diagnostic:
+    return Diagnostic(code, VALIDATOR, str(path), message)
+
+
+def validate_source(yaml_file: Path, data: dict) -> list[Diagnostic]:
     errors = []
     source_id = data.get("id", "unknown")
     ctx = f"{yaml_file} [{source_id}]"
 
     provenance = data.get("provenance")
     if not provenance:
-        errors.append(f"{ctx}: Missing required 'provenance' field")
+        errors.append(_err("PROVENANCE_MISSING", yaml_file, f"{ctx}: Missing required 'provenance' field"))
         return errors
 
     if not provenance.get("origin"):
-        errors.append(f"{ctx}: Missing provenance.origin")
+        errors.append(_err("PROVENANCE_MISSING_ORIGIN", yaml_file, f"{ctx}: Missing provenance.origin"))
     if not provenance.get("obtained_via"):
-        errors.append(f"{ctx}: Missing provenance.obtained_via")
+        errors.append(_err("PROVENANCE_MISSING_OBTAINED_VIA", yaml_file, f"{ctx}: Missing provenance.obtained_via"))
 
     quality_tier = data.get("quality_tier")
 
     if quality_tier in ("A", "B"):
         if not provenance.get("authentication_notes"):
-            errors.append(
+            errors.append(_err(
+                "PROVENANCE_MISSING_AUTH_NOTES", yaml_file,
                 f"{ctx}: Quality tier {quality_tier} source requires "
                 f"provenance.authentication_notes"
-            )
+            ))
         artifacts = data.get("artifacts") or []
         if not any(a.get("sha256") for a in artifacts):
-            errors.append(
+            errors.append(_err(
+                "PROVENANCE_MISSING_DIGEST", yaml_file,
                 f"{ctx}: Quality tier {quality_tier} source requires at least "
                 f"one artifact with a sha256 digest — a URL alone does not fix "
                 f"the source's content"
-            )
+            ))
 
     # Tier D/E are NOT errors — a disputed source is a legitimate, explicitly
     # uncertain part of the record. They are printed as advisories so the

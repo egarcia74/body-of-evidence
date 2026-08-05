@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import List, Tuple
 
-from boe_files import find_entity_files, find_manifest, load_yaml
+from boe_files import Diagnostic, find_entity_files, find_manifest, load_yaml
 
 try:
     from jsonschema import Draft202012Validator
@@ -21,6 +21,12 @@ try:
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
+
+VALIDATOR = "schema"
+
+
+def _err(code: str, path, message: str) -> Diagnostic:
+    return Diagnostic(code, VALIDATOR, str(path), message)
 
 
 def build_registry(schema_dir: Path):
@@ -44,13 +50,16 @@ def load_schema(schema_dir: Path, entity_type: str) -> dict | None:
         return json.load(f)
 
 
-def validate_data(data: dict, schema: dict, registry, context: str) -> list[str]:
+def validate_data(data: dict, schema: dict, registry, context: str) -> list[Diagnostic]:
     """Validate one document, reporting ALL errors, not just the first."""
     validator = Draft202012Validator(schema, registry=registry)
     errors = []
     for error in sorted(validator.iter_errors(data), key=lambda e: list(e.path)):
-        path = " > ".join(str(p) for p in error.path) or "(root)"
-        errors.append(f"{context}: {error.message} (at: {path})")
+        json_path = " > ".join(str(p) for p in error.path) or "(root)"
+        errors.append(_err(
+            "SCHEMA_VALIDATION_ERROR", context,
+            f"{context}: {error.message} (at: {json_path})"
+        ))
     return errors
 
 
@@ -61,7 +70,10 @@ def run_schema_validation(
 ) -> Tuple[bool, List[str]]:
     """Returns (passed, errors). Counts validated files so callers can detect vacuous runs."""
     if not JSONSCHEMA_AVAILABLE:
-        return False, ["jsonschema>=4.18 not installed — run: pip install -r scripts/requirements.txt"]
+        return False, [_err(
+            "SCHEMA_JSONSCHEMA_UNAVAILABLE", "<repo>",
+            "jsonschema>=4.18 not installed — run: pip install -r scripts/requirements.txt"
+        )]
 
     registry = build_registry(schema_dir)
     all_errors = []
@@ -71,20 +83,23 @@ def run_schema_validation(
     for yaml_file in find_entity_files(investigation_paths):
         data, error = load_yaml(yaml_file)
         if error:
-            all_errors.append(error)
+            all_errors.append(_err("YAML_PARSE_ERROR", yaml_file, error))
             continue
         if data is None:
             continue
         entity_type = data.get("type")
         if not entity_type:
-            all_errors.append(f"{yaml_file}: Missing required 'type' field")
+            all_errors.append(_err(
+                "SCHEMA_MISSING_TYPE", yaml_file, f"{yaml_file}: Missing required 'type' field"
+            ))
             continue
         schema = load_schema(schema_dir, entity_type)
         if schema is None:
-            all_errors.append(
+            all_errors.append(_err(
+                "SCHEMA_UNKNOWN_TYPE", yaml_file,
                 f"{yaml_file}: No schema for type '{entity_type}' "
                 f"(expected schema/{entity_type}.schema.json)"
-            )
+            ))
             continue
         errors = validate_data(data, schema, registry, str(yaml_file))
         all_errors.extend(errors)
@@ -100,7 +115,7 @@ def run_schema_validation(
             continue
         data, error = load_yaml(manifest_path)
         if error:
-            all_errors.append(error)
+            all_errors.append(_err("YAML_PARSE_ERROR", manifest_path, error))
             continue
         if data is None or package_schema is None:
             continue
@@ -111,7 +126,7 @@ def run_schema_validation(
             print(f"    OK: {manifest_path} (package manifest)")
 
     if validated == 0 and not all_errors:
-        all_errors.append("No files were validated — vacuous run")
+        all_errors.append(_err("SCHEMA_VACUOUS_RUN", "<repo>", "No files were validated — vacuous run"))
 
     return len(all_errors) == 0, all_errors
 

@@ -87,7 +87,7 @@ class TestSchemaFiles:
         passed, errors = run_schema_validation(
             [REPO_ROOT / "examples"], SCHEMA_DIR, verbose=False
         )
-        assert passed, "Examples failed schema validation:\n" + "\n".join(errors)
+        assert passed, "Examples failed schema validation:\n" + "\n".join(str(e) for e in errors)
 
 
 class TestUlidValidation:
@@ -137,7 +137,7 @@ class TestValidFixture:
             schema_dir=SCHEMA_DIR,
             verbose=False,
         )
-        assert passed, f"{check.__name__} failed on valid fixture:\n" + "\n".join(errors)
+        assert passed, f"{check.__name__} failed on valid fixture:\n" + "\n".join(str(e) for e in errors)
 
 
 class TestVersioningModel:
@@ -168,62 +168,95 @@ class TestVersioningModel:
         )
         assert passed, (
             "Repeated stable id with distinct version_ids must validate:\n"
-            + "\n".join(errors)
+            + "\n".join(str(e) for e in errors)
         )
 
 
 class TestInvalidFixtures:
     """Every invalid fixture must be rejected by the intended check WITH the
-    intended error — asserting only "some check failed" would let a fixture
-    fail for the wrong reason and silently stop proving its invariant
-    (third-pass review, D-014 extension)."""
+    intended error. Fourth-pass review finding M-07/M-10: asserting only a
+    substring of one error tolerates extra, unrelated, or cascading
+    diagnostics passing silently (the tracked manifest-symlink-escape
+    fixture emits two diagnostics; the old substring assertion never
+    noticed). Diagnostics are now structured (boe_files.Diagnostic) and each
+    fixture declares its EXACT (validator, code) set across ALL checks —
+    equality, not membership."""
 
-    def _all_checks_pass(self, pkg: Path) -> tuple[bool, list]:
-        failing = []
+    def _all_diagnostics(self, pkg: Path) -> set[tuple[str, str]]:
+        codes = set()
         for check in ALL_CHECKS:
-            passed, errors = check(
+            _, errors = check(
                 investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
             )
-            if not passed:
-                failing.append((check.__name__, errors))
-        return len(failing) == 0, failing
+            codes.update((e.validator, e.code) for e in errors)
+        return codes
 
     @pytest.mark.parametrize(
-        "pkg_name,expected_check,expected_error_fragment",
+        "pkg_name,expected_codes",
         [
-            ("duplicate-version-id", "run_id_validation",
-             "Duplicate version_id"),
-            ("broken-reference", "run_reference_validation",
-             "not found"),
-            ("orphan-evidence", "run_orphan_validation",
-             "orphaned evidence"),
-            ("missing-provenance", "run_provenance_validation",
-             "provenance"),
-            ("bad-id-format", "run_id_validation",
-             "does not match pattern boe:<type>:<ulid>"),
-            ("missing-manifest", "run_reference_validation",
-             "Missing package.yaml"),
-            ("revision-unrelated-endpoints", "run_reference_validation",
-             "same entity"),
-            ("manifest-no-investigation", "run_reference_validation",
-             "no Investigation entity"),
-            ("manifest-symlink-escape", "run_reference_validation",
-             "symlink"),
+            ("duplicate-version-id", {("ids", "VERSION_ID_DUPLICATE")}),
+            ("broken-reference", {("references", "REF_NOT_FOUND")}),
+            ("orphan-evidence", {("orphans", "ORPHAN_EVIDENCE")}),
+            ("missing-provenance", {
+                ("schema", "SCHEMA_VALIDATION_ERROR"),
+                ("provenance", "PROVENANCE_MISSING"),
+            }),
+            ("bad-id-format", {
+                ("schema", "SCHEMA_VALIDATION_ERROR"),
+                ("ids", "ID_BAD_FORMAT"),
+            }),
+            ("missing-manifest", {("references", "MANIFEST_MISSING")}),
+            ("revision-unrelated-endpoints", {("references", "REVISION_ENTITY_MISMATCH")}),
+            ("manifest-no-investigation", {("references", "MANIFEST_NO_INVESTIGATION")}),
+            ("manifest-symlink-escape", {
+                ("references", "MANIFEST_PATH_SYMLINK"),
+                # Root cause is the symlink; this is a derived/cascading
+                # diagnostic — the manifest's only Investigation entry is
+                # the rejected symlinked path, so the manifest also has no
+                # accepted Investigation. Declared explicitly, not hidden.
+                ("references", "MANIFEST_NO_INVESTIGATION"),
+            }),
         ],
     )
-    def test_invalid_fixture_rejected(self, pkg_name, expected_check, expected_error_fragment):
+    def test_invalid_fixture_rejected(self, pkg_name, expected_codes):
         pkg = FIXTURES / "invalid" / pkg_name
         assert pkg.exists(), f"Missing invalid fixture: {pkg_name}"
-        all_pass, failing = self._all_checks_pass(pkg)
-        assert not all_pass, f"invalid/{pkg_name} was not rejected by any check"
-        failing_names = [name for name, _ in failing]
-        assert expected_check in failing_names, (
-            f"invalid/{pkg_name} should be rejected by {expected_check}, "
-            f"was rejected by {failing_names}"
+        actual_codes = self._all_diagnostics(pkg)
+        assert actual_codes == expected_codes, (
+            f"invalid/{pkg_name}: expected exactly {expected_codes}, "
+            f"got {actual_codes}"
         )
-        expected_errors = dict(failing)[expected_check]
-        assert any(expected_error_fragment in e for e in expected_errors), (
-            f"invalid/{pkg_name}: {expected_check} failed, but not with the "
-            f"intended error (wanted '{expected_error_fragment}', got: "
-            f"{expected_errors})"
+
+
+class TestCrossPackageRevision:
+    """H-02b (fourth-pass review): a Revision must only connect versions
+    owned by its OWN package. fixtures/cross_package/{pkg-a,pkg-b} share a
+    stable claim id across two independent packages on purpose — package
+    A's revision claims a transition from a version that actually lives in
+    package B. This can only be exercised by validating both packages
+    TOGETHER (one list of investigation_paths), which the single-package
+    fixtures/invalid/* self-test loop cannot do — hence a dedicated test
+    rather than another self-test fixture."""
+
+    def test_revision_cannot_claim_version_from_another_package(self):
+        pkg_a = FIXTURES / "cross_package" / "pkg-a"
+        pkg_b = FIXTURES / "cross_package" / "pkg-b"
+        assert pkg_a.exists() and pkg_b.exists(), "Missing cross_package fixtures"
+
+        passed, errors = run_reference_validation(
+            investigation_paths=[pkg_a, pkg_b], schema_dir=SCHEMA_DIR, verbose=False
         )
+        assert not passed, "Cross-package revision endpoint was not rejected"
+        codes = {(e.validator, e.code) for e in errors}
+        assert ("references", "REVISION_ENDPOINT_WRONG_PACKAGE") in codes, (
+            f"Expected REVISION_ENDPOINT_WRONG_PACKAGE, got: {codes}"
+        )
+
+    def test_each_package_is_independently_well_formed(self):
+        """The cross-package defect, not incidental fixture breakage, must
+        be what fails — each package alone should pass every other check."""
+        for pkg_name in ("pkg-a", "pkg-b"):
+            pkg = FIXTURES / "cross_package" / pkg_name
+            for check in (run_schema_validation, run_id_validation, run_orphan_validation, run_provenance_validation):
+                passed, errors = check(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
+                assert passed, f"{pkg_name} unexpectedly failed {check.__name__}: {[str(e) for e in errors]}"

@@ -7,12 +7,33 @@ treated identically everywhere. (A .yml file that bypasses semantic
 validation is a validation hole.)
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Tuple, Optional
 
 import yaml
 
 MANIFEST_NAME = "package.yaml"
+
+
+@dataclass(frozen=True)
+class Diagnostic:
+    """
+    A structured validation failure — fourth-pass review finding M-10.
+    Free-form error strings cannot be asserted exactly in tests (a wording
+    change can accidentally satisfy a substring match) and cannot be
+    consumed reliably by editors, AI agents, or MCP clients. `code` is the
+    stable, machine-checkable identity of a diagnostic; `message` remains
+    for humans.
+    """
+
+    code: str
+    validator: str
+    path: str
+    message: str
+
+    def __str__(self) -> str:
+        return self.message
 
 
 def find_entity_files(investigation_paths: list[Path]) -> list[Path]:

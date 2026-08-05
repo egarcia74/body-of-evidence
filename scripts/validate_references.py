@@ -29,7 +29,13 @@ Reference map (single-direction — backlinks are derived, never stored):
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import iter_entities, find_manifest, load_yaml
+from boe_files import Diagnostic, iter_entities, find_manifest, load_yaml
+
+VALIDATOR = "references"
+
+
+def _err(code: str, path, message: str) -> Diagnostic:
+    return Diagnostic(code, VALIDATOR, str(path), message)
 
 
 def expected_type(ref_id: str) -> str:
@@ -38,87 +44,89 @@ def expected_type(ref_id: str) -> str:
     return parts[1] if len(parts) == 3 else ""
 
 
-def check_ref(ref_id, id_index: dict, context: str, errors: list,
+def check_ref(ref_id, id_index: dict, context: str, path, errors: list,
               want_type: str | None = None):
     if not ref_id:
         return
     if ref_id not in id_index:
-        errors.append(f"{context}: Referenced ID '{ref_id}' not found")
+        errors.append(_err("REF_NOT_FOUND", path, f"{context}: Referenced ID '{ref_id}' not found"))
         return
     if want_type and expected_type(ref_id) != want_type:
-        errors.append(
+        errors.append(_err(
+            "REF_TYPE_MISMATCH", path,
             f"{context}: Expected a {want_type} reference but got '{ref_id}'"
-        )
+        ))
 
 
-def check_ref_list(ref_ids, id_index, context, errors, want_type=None):
+def check_ref_list(ref_ids, id_index, context, path, errors, want_type=None):
     for ref_id in ref_ids or []:
-        check_ref(ref_id, id_index, context, errors, want_type)
+        check_ref(ref_id, id_index, context, path, errors, want_type)
 
 
-def validate_references_in_file(yaml_file: Path, data: dict, id_index: dict) -> list[str]:
+def validate_references_in_file(yaml_file: Path, data: dict, id_index: dict) -> list[Diagnostic]:
     errors = []
     t = data.get("type", "unknown")
     ctx = str(yaml_file)
 
     if t == "claim_evidence_link":
-        check_ref(data.get("claim_id"), id_index, f"{ctx}[claim_id]", errors, "claim")
-        check_ref(data.get("evidence_id"), id_index, f"{ctx}[evidence_id]", errors, "evidence")
+        check_ref(data.get("claim_id"), id_index, f"{ctx}[claim_id]", yaml_file, errors, "claim")
+        check_ref(data.get("evidence_id"), id_index, f"{ctx}[evidence_id]", yaml_file, errors, "evidence")
 
     elif t == "evidence":
-        check_ref(data.get("source_id"), id_index, f"{ctx}[source_id]", errors, "source")
+        check_ref(data.get("source_id"), id_index, f"{ctx}[source_id]", yaml_file, errors, "source")
 
     elif t == "claim":
-        check_ref(data.get("investigation_id"), id_index, f"{ctx}[investigation_id]", errors, "investigation")
+        check_ref(data.get("investigation_id"), id_index, f"{ctx}[investigation_id]", yaml_file, errors, "investigation")
 
     elif t == "assessment":
-        check_ref(data.get("claim_id"), id_index, f"{ctx}[claim_id]", errors, "claim")
-        check_ref_list(data.get("link_ids"), id_index, f"{ctx}[link_ids]", errors, "claim_evidence_link")
+        check_ref(data.get("claim_id"), id_index, f"{ctx}[claim_id]", yaml_file, errors, "claim")
+        check_ref_list(data.get("link_ids"), id_index, f"{ctx}[link_ids]", yaml_file, errors, "claim_evidence_link")
 
     elif t == "finding":
-        check_ref(data.get("investigation_id"), id_index, f"{ctx}[investigation_id]", errors, "investigation")
-        check_ref_list(data.get("claim_ids"), id_index, f"{ctx}[claim_ids]", errors, "claim")
+        check_ref(data.get("investigation_id"), id_index, f"{ctx}[investigation_id]", yaml_file, errors, "investigation")
+        check_ref_list(data.get("claim_ids"), id_index, f"{ctx}[claim_ids]", yaml_file, errors, "claim")
 
     elif t == "timeline":
-        check_ref(data.get("investigation_id"), id_index, f"{ctx}[investigation_id]", errors, "investigation")
-        check_ref_list(data.get("event_ids"), id_index, f"{ctx}[event_ids]", errors, "event")
+        check_ref(data.get("investigation_id"), id_index, f"{ctx}[investigation_id]", yaml_file, errors, "investigation")
+        check_ref_list(data.get("event_ids"), id_index, f"{ctx}[event_ids]", yaml_file, errors, "event")
 
     elif t == "revision":
-        check_ref(data.get("entity_id"), id_index, f"{ctx}[entity_id]", errors)
-        check_ref(data.get("triggered_by_review_id"), id_index, f"{ctx}[triggered_by_review_id]", errors, "review")
+        check_ref(data.get("entity_id"), id_index, f"{ctx}[entity_id]", yaml_file, errors)
+        check_ref(data.get("triggered_by_review_id"), id_index, f"{ctx}[triggered_by_review_id]", yaml_file, errors, "review")
 
     elif t == "review":
-        check_ref(data.get("subject_id"), id_index, f"{ctx}[subject_id]", errors)
-        check_ref(data.get("resolved_by_revision_id"), id_index, f"{ctx}[resolved_by_revision_id]", errors, "revision")
-        check_ref_list(data.get("counter_evidence_ids"), id_index, f"{ctx}[counter_evidence_ids]", errors, "evidence")
+        check_ref(data.get("subject_id"), id_index, f"{ctx}[subject_id]", yaml_file, errors)
+        check_ref(data.get("resolved_by_revision_id"), id_index, f"{ctx}[resolved_by_revision_id]", yaml_file, errors, "revision")
+        check_ref_list(data.get("counter_evidence_ids"), id_index, f"{ctx}[counter_evidence_ids]", yaml_file, errors, "evidence")
 
     elif t == "relationship":
         for end, type_field in (("from_id", "from_type"), ("to_id", "to_type")):
             ref = data.get(end)
-            check_ref(ref, id_index, f"{ctx}[{end}]", errors)
+            check_ref(ref, id_index, f"{ctx}[{end}]", yaml_file, errors)
             declared = data.get(type_field)
             if ref and declared and expected_type(ref) != declared:
-                errors.append(
+                errors.append(_err(
+                    "REF_DECLARED_TYPE_MISMATCH", yaml_file,
                     f"{ctx}[{end}]: ID '{ref}' is a {expected_type(ref)} "
                     f"but {type_field} declares '{declared}'"
-                )
-        check_ref(data.get("claim_id"), id_index, f"{ctx}[claim_id]", errors, "claim")
-        check_ref_list(data.get("source_ids"), id_index, f"{ctx}[source_ids]", errors, "source")
+                ))
+        check_ref(data.get("claim_id"), id_index, f"{ctx}[claim_id]", yaml_file, errors, "claim")
+        check_ref_list(data.get("source_ids"), id_index, f"{ctx}[source_ids]", yaml_file, errors, "source")
 
     elif t == "person":
-        check_ref_list(data.get("organisations"), id_index, f"{ctx}[organisations]", errors, "organisation")
+        check_ref_list(data.get("organisations"), id_index, f"{ctx}[organisations]", yaml_file, errors, "organisation")
 
     elif t == "organisation":
-        check_ref(data.get("parent_organisation_id"), id_index, f"{ctx}[parent_organisation_id]", errors, "organisation")
+        check_ref(data.get("parent_organisation_id"), id_index, f"{ctx}[parent_organisation_id]", yaml_file, errors, "organisation")
 
     elif t == "event":
-        check_ref_list(data.get("claim_ids"), id_index, f"{ctx}[claim_ids]", errors, "claim")
-        check_ref_list(data.get("source_ids"), id_index, f"{ctx}[source_ids]", errors, "source")
-        check_ref_list(data.get("person_ids"), id_index, f"{ctx}[person_ids]", errors, "person")
-        check_ref_list(data.get("organisation_ids"), id_index, f"{ctx}[organisation_ids]", errors, "organisation")
+        check_ref_list(data.get("claim_ids"), id_index, f"{ctx}[claim_ids]", yaml_file, errors, "claim")
+        check_ref_list(data.get("source_ids"), id_index, f"{ctx}[source_ids]", yaml_file, errors, "source")
+        check_ref_list(data.get("person_ids"), id_index, f"{ctx}[person_ids]", yaml_file, errors, "person")
+        check_ref_list(data.get("organisation_ids"), id_index, f"{ctx}[organisation_ids]", yaml_file, errors, "organisation")
 
     elif t == "source":
-        check_ref_list(data.get("related_source_ids"), id_index, f"{ctx}[related_source_ids]", errors, "source")
+        check_ref_list(data.get("related_source_ids"), id_index, f"{ctx}[related_source_ids]", yaml_file, errors, "source")
 
     return errors
 
@@ -135,29 +143,50 @@ def _path_is_contained(path_str: str) -> bool:
     return True
 
 
-def _resolved_containment_error(inv_path: Path, path_str: str) -> str | None:
+def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str] | None:
     """
-    Resolved containment: the target — after following symlinks — must still
-    live under the package root. Lexical checks alone can be bypassed by a
-    tracked symlink pointing outside the package.
-    Returns an error string, or None if contained.
+    Two independent checks, both enforced (fourth-pass review M-11 — the
+    documented "no symlinks" policy was stricter than the implementation,
+    which only rejected the final component):
+
+    1. No path component between the package root and the entity file may
+       itself be a symlink — not just the entity file, but every parent
+       directory in between. This is the simpler, auditable rule the review
+       recommended: a reproducible package contains no symlinks at all.
+    2. Resolved containment: the target — after following any symlinks that
+       do exist — must still live under the package root. This is a
+       defence-in-depth backstop, not a substitute for rule 1.
+
+    Returns (code, message), or None if the path is clean.
     """
+    root = inv_path.resolve()
     entity_file = inv_path / path_str
-    if entity_file.is_symlink():
-        return (
-            f"Path '{path_str}' is a symlink — symlinked entity paths are "
-            f"prohibited (they can escape the package after lexical checks pass)"
-        )
+
+    # Rule 1: no symlink anywhere from the package root down to the file.
+    walked = inv_path
+    for part in Path(path_str).parts:
+        walked = walked / part
+        if walked.is_symlink():
+            return (
+                "MANIFEST_PATH_SYMLINK",
+                f"Path '{path_str}' contains a symlink at '{walked.relative_to(inv_path)}' "
+                f"— symlinks anywhere in a package path are prohibited (they can "
+                f"escape the package after lexical checks pass)"
+            )
+
+    # Rule 2: even without a tracked symlink, the resolved target must stay
+    # under the package root (catches symlinked ancestor directories that
+    # exist outside the checkout, e.g. a symlinked package root itself).
     try:
         resolved = entity_file.resolve()
-        root = inv_path.resolve()
         if not resolved.is_relative_to(root):
             return (
+                "MANIFEST_PATH_ESCAPES_ROOT",
                 f"Path '{path_str}' resolves to '{resolved}', outside the "
                 f"package root"
             )
     except OSError as e:
-        return f"Path '{path_str}' could not be resolved: {e}"
+        return ("MANIFEST_PATH_UNRESOLVABLE", f"Path '{path_str}' could not be resolved: {e}")
     return None
 
 
@@ -181,15 +210,16 @@ def validate_manifest(inv_path: Path, id_index: dict, version_index: dict):
     """
     manifest_path = find_manifest(inv_path)
     if manifest_path is None:
-        return [
+        return [_err(
+            "MANIFEST_MISSING", inv_path,
             f"{inv_path}: Missing package.yaml manifest — a package without a "
             f"manifest has no defined current state (see D-012)"
-        ], {}
+        )], {}
     data, error = load_yaml(manifest_path)
     if error:
-        return [error], {}
+        return [_err("YAML_PARSE_ERROR", manifest_path, error)], {}
     if not data:
-        return [f"{manifest_path}: Manifest is empty"], {}
+        return [_err("MANIFEST_EMPTY", manifest_path, f"{manifest_path}: Manifest is empty")], {}
 
     errors = []
     current_map = {}
@@ -197,10 +227,11 @@ def validate_manifest(inv_path: Path, id_index: dict, version_index: dict):
     ctx = str(manifest_path)
 
     if data.get("slug") and data["slug"] != inv_path.name:
-        errors.append(
+        errors.append(_err(
+            "MANIFEST_SLUG_MISMATCH", manifest_path,
             f"{ctx}: Manifest slug '{data['slug']}' does not match package "
             f"directory name '{inv_path.name}'"
-        )
+        ))
 
     seen_entry_ids = {}
     seen_entry_versions = {}
@@ -211,91 +242,111 @@ def validate_manifest(inv_path: Path, id_index: dict, version_index: dict):
 
         if eid:
             if eid in seen_entry_ids:
-                errors.append(
+                errors.append(_err(
+                    "MANIFEST_DUPLICATE_ENTITY_ID", manifest_path,
                     f"{ctx}: Entity id '{eid}' listed more than once — the "
                     f"manifest defines exactly one CURRENT version per entity"
-                )
+                ))
             seen_entry_ids[eid] = entry
             if vid:
                 current_map[eid] = vid
         if vid:
             if vid in seen_entry_versions:
-                errors.append(f"{ctx}: version_id '{vid}' listed more than once")
+                errors.append(_err(
+                    "MANIFEST_DUPLICATE_VERSION_ID", manifest_path,
+                    f"{ctx}: version_id '{vid}' listed more than once"
+                ))
             seen_entry_versions[vid] = entry
         if path:
             if path in seen_entry_paths:
-                errors.append(f"{ctx}: Path '{path}' listed more than once")
+                errors.append(_err(
+                    "MANIFEST_DUPLICATE_PATH", manifest_path, f"{ctx}: Path '{path}' listed more than once"
+                ))
             seen_entry_paths[path] = entry
 
             if not _path_is_contained(path):
-                errors.append(
+                errors.append(_err(
+                    "MANIFEST_PATH_NOT_CONTAINED", manifest_path,
                     f"{ctx}: Path '{path}' is not contained in the package "
                     f"(absolute paths and '..' are rejected)"
-                )
+                ))
                 continue
 
             containment_error = _resolved_containment_error(inv_path, path)
             if containment_error:
-                errors.append(f"{ctx}: {containment_error}")
+                code, message = containment_error
+                errors.append(_err(code, manifest_path, f"{ctx}: {message}"))
                 continue
 
             entity_file = inv_path / path
             if not entity_file.exists():
-                errors.append(f"{ctx}: Listed path '{path}' does not exist")
+                errors.append(_err(
+                    "MANIFEST_PATH_MISSING", manifest_path, f"{ctx}: Listed path '{path}' does not exist"
+                ))
                 continue
             file_data, ferr = load_yaml(entity_file)
             if ferr or not file_data:
                 continue  # Parse errors reported by schema validation
             if eid and file_data.get("id") != eid:
-                errors.append(
+                errors.append(_err(
+                    "MANIFEST_ENTRY_ID_MISMATCH", manifest_path,
                     f"{ctx}: Entry id '{eid}' does not match id "
                     f"'{file_data.get('id')}' in {path}"
-                )
+                ))
             if vid and file_data.get("version_id") != vid:
-                errors.append(
+                errors.append(_err(
+                    "MANIFEST_ENTRY_VERSION_MISMATCH", manifest_path,
                     f"{ctx}: Entry version_id '{vid}' does not match version_id "
                     f"'{file_data.get('version_id')}' in {path}"
-                )
+                ))
             if file_data.get("type") == "investigation":
                 investigation_entries.append((entry, file_data))
 
     # Exactly one Investigation entity, matching the manifest's investigation_id.
     manifest_inv_id = data.get("investigation_id")
     if len(investigation_entries) == 0:
-        errors.append(
+        errors.append(_err(
+            "MANIFEST_NO_INVESTIGATION", manifest_path,
             f"{ctx}: Manifest lists no Investigation entity — a package that "
             f"omits its own Investigation has no defined subject"
-        )
+        ))
     elif len(investigation_entries) > 1:
-        errors.append(
+        errors.append(_err(
+            "MANIFEST_MULTIPLE_INVESTIGATIONS", manifest_path,
             f"{ctx}: Manifest lists {len(investigation_entries)} Investigation "
             f"entities — exactly one is required"
-        )
+        ))
     elif manifest_inv_id:
         _, inv_data = investigation_entries[0]
         if inv_data.get("id") != manifest_inv_id:
-            errors.append(
+            errors.append(_err(
+                "MANIFEST_INVESTIGATION_ID_MISMATCH", manifest_path,
                 f"{ctx}: investigation_id '{manifest_inv_id}' does not match "
                 f"the Investigation entity '{inv_data.get('id')}' listed in "
                 f"the manifest"
-            )
+            ))
 
     return errors, current_map
 
 
 def validate_revision_transition(
-    yaml_file: Path, data: dict, version_index: dict, current_map: dict
-) -> list[str]:
+    yaml_file: Path, data: dict, version_index: dict, current_map: dict, inv_path: Path
+) -> list[Diagnostic]:
     """
-    A Revision connects two versions OF THE SAME ENTITY. Endpoint existence
-    alone is not enough — a revision whose endpoints belong to unrelated
-    entities is syntactically valid and semantically meaningless.
+    A Revision connects two versions OF THE SAME ENTITY, OWNED BY THE SAME
+    PACKAGE. Endpoint existence alone is not enough — a revision whose
+    endpoints belong to unrelated entities is syntactically valid and
+    semantically meaningless (third-pass finding); a revision whose
+    endpoints belong to a DIFFERENT package is likewise meaningless — it
+    lets one investigation claim a transition it does not own (fourth-pass
+    finding H-02b).
 
     Checks:
     - old/new version_ids correspond to existing version files
     - old != new
     - both endpoint files carry the Revision's entity_id
     - both endpoint files carry the Revision's entity_type
+    - both endpoint files are owned by the package containing this Revision
     - the OLD version is not listed as current in the package manifest
       (a "superseded" version that is still current is a contradiction)
     Note: the NEW version is deliberately not required to be current —
@@ -313,46 +364,73 @@ def validate_revision_transition(
             continue
         info = version_index.get(vid)
         if info is None:
-            errors.append(
+            errors.append(_err(
+                "REVISION_ENDPOINT_NOT_FOUND", yaml_file,
                 f"{ctx}[{field}]: version_id '{vid}' does not correspond to "
                 f"any entity version file"
-            )
+            ))
             continue
         endpoints[field] = info
         if entity_id and info["id"] != entity_id:
-            errors.append(
+            errors.append(_err(
+                "REVISION_ENTITY_MISMATCH", yaml_file,
                 f"{ctx}[{field}]: version '{vid}' belongs to entity "
                 f"'{info['id']}', not the revised entity '{entity_id}' — a "
                 f"revision must connect two versions of the same entity"
-            )
+            ))
         if entity_type and info["type"] != entity_type:
-            errors.append(
+            errors.append(_err(
+                "REVISION_TYPE_MISMATCH", yaml_file,
                 f"{ctx}[{field}]: version '{vid}' is a '{info['type']}', but "
                 f"the revision declares entity_type '{entity_type}'"
-            )
+            ))
+        if info["package"] is not None and info["package"] != inv_path:
+            errors.append(_err(
+                "REVISION_ENDPOINT_WRONG_PACKAGE", yaml_file,
+                f"{ctx}[{field}]: version '{vid}' belongs to package "
+                f"'{info['package']}', not this revision's package "
+                f"'{inv_path}' — a revision may only connect versions owned "
+                f"by its own package"
+            ))
 
     old, new = data.get("old_version_id"), data.get("new_version_id")
     if old and new and old == new:
-        errors.append(f"{ctx}: old_version_id and new_version_id are identical")
+        errors.append(_err(
+            "REVISION_SAME_ENDPOINTS", yaml_file, f"{ctx}: old_version_id and new_version_id are identical"
+        ))
 
     if entity_id and old and current_map.get(entity_id) == old:
-        errors.append(
+        errors.append(_err(
+            "REVISION_OLD_STILL_CURRENT", yaml_file,
             f"{ctx}: old_version_id '{old}' is still listed as CURRENT for "
             f"'{entity_id}' in the manifest — a superseded version cannot be "
             f"the current version"
-        )
+        ))
 
     return errors
+
+
+def _owning_package(path: Path, investigation_paths: list[Path]) -> Path | None:
+    """Which of the passed-in package roots contains this file, if any."""
+    for inv_path in investigation_paths:
+        try:
+            path.relative_to(inv_path)
+            return inv_path
+        except ValueError:
+            continue
+    return None
 
 
 def run_reference_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[str]]:
+) -> Tuple[bool, List[Diagnostic]]:
     # Pass 1: index all defined IDs and versions. The version index is
     # deliberately rich — a lossy version_id -> path map cannot support
-    # revision transition validation (third-pass review finding).
+    # revision transition validation (third-pass review finding), and it
+    # must carry package identity so transitions cannot cross package
+    # boundaries unnoticed (fourth-pass review finding H-02b).
     id_index = {}
     version_index = {}
     entities = list(iter_entities(investigation_paths))
@@ -364,6 +442,7 @@ def run_reference_validation(
                 "path": path,
                 "id": data.get("id"),
                 "type": data.get("type"),
+                "package": _owning_package(path, investigation_paths),
             }
 
     if verbose:
@@ -389,7 +468,7 @@ def run_reference_validation(
             except ValueError:
                 continue  # revision belongs to a different package
             all_errors.extend(
-                validate_revision_transition(path, data, version_index, current_map)
+                validate_revision_transition(path, data, version_index, current_map, inv_path)
             )
 
     return len(all_errors) == 0, all_errors

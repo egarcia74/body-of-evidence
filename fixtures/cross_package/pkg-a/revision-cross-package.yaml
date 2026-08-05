@@ -1,0 +1,18 @@
+# FIXTURE (H-02b) — old_version_id points at a version file that lives in
+# package B, not this (package A) revision's own package. Both endpoints
+# share entity_id/entity_type, so the third-pass identity check alone
+# passes this; only package-scoped ownership catches it.
+id: "boe:revision:01JF0000000000000000000803"
+version_id: "01JFV000000000000000000803"
+type: "revision"
+entity_id: "boe:claim:01JF0000000000000000000802"
+entity_type: "claim"
+revision_type: "correction"
+old_version_id: "01JFV000000000000000000901"
+new_version_id: "01JFV000000000000000000802"
+reason: "Fixture revision deliberately claiming a transition over another package's version."
+author:
+  identifier: "fixture-investigator"
+  role: "lead_investigator"
+  conflict_of_interest: "none"
+created_at: "2026-08-04T00:00:00Z"

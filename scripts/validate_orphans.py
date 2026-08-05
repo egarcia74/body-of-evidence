@@ -16,7 +16,9 @@ warning only (unassessed evidence is normal during drafting).
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import iter_entities
+from boe_files import Diagnostic, iter_entities
+
+VALIDATOR = "orphans"
 
 
 def run_orphan_validation(
@@ -40,10 +42,11 @@ def run_orphan_validation(
 
     for evidence_id, path in sorted(evidence_files.items()):
         if evidence_id not in linked_evidence:
-            all_errors.append(
+            all_errors.append(Diagnostic(
+                "ORPHAN_EVIDENCE", VALIDATOR, str(path),
                 f"{path}: Evidence '{evidence_id}' is not referenced by any "
                 f"claim_evidence_link — orphaned evidence"
-            )
+            ))
         elif verbose:
             print(f"    OK: {evidence_id} is linked")
 
