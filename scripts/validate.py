@@ -47,8 +47,7 @@ CHECKS = {
 }
 
 
-def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool,
-                   checks: dict, label: str) -> tuple[bool, dict]:
+def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool, checks: dict) -> tuple[bool, dict]:
     """Run the given checks over the given paths. Returns (all_passed, results)."""
     results = {}
     all_passed = True
@@ -62,7 +61,7 @@ def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool,
     return all_passed, results
 
 
-def print_results(results: dict, label: str):
+def print_results(results: dict):
     for check_name, result in results.items():
         if result["passed"]:
             print(f"  [{check_name}] OK")
@@ -93,16 +92,16 @@ def self_test(schema_dir: Path, verbose: bool) -> bool:
     print(f"\n[SELF-TEST] {len(valid_packages)} valid, {len(invalid_packages)} invalid fixture package(s)")
 
     for pkg in valid_packages:
-        passed, results = run_all_checks([pkg], schema_dir, verbose, CHECKS, pkg.name)
+        passed, results = run_all_checks([pkg], schema_dir, verbose, CHECKS)
         if passed:
             print(f"  valid/{pkg.name}: passes all checks — OK")
         else:
             ok = False
             print(f"  valid/{pkg.name}: FAILED checks that should pass:")
-            print_results({k: v for k, v in results.items() if not v["passed"]}, pkg.name)
+            print_results({k: v for k, v in results.items() if not v["passed"]})
 
     for pkg in invalid_packages:
-        passed, results = run_all_checks([pkg], schema_dir, False, CHECKS, pkg.name)
+        passed, results = run_all_checks([pkg], schema_dir, False, CHECKS)
         if not passed:
             failing = [k for k, v in results.items() if not v["passed"]]
             print(f"  invalid/{pkg.name}: correctly rejected by [{', '.join(failing)}] — OK")
@@ -135,9 +134,8 @@ def main():
     schema_dir = REPO_ROOT / "schema"
     exit_code = 0
 
-    if args.self_test:
-        if not self_test(schema_dir, args.verbose):
-            exit_code = 1
+    if args.self_test and not self_test(schema_dir, args.verbose):
+        exit_code = 1
 
     investigations_dir = args.root if args.root is not None else REPO_ROOT / "investigations"
 
@@ -164,13 +162,22 @@ def main():
     try:
         if args.investigation:
             investigation_paths = [investigations_dir / args.investigation]
-            if not investigation_paths[0].exists():
+            # A DANGLING symlink fails .exists() too — but it must still
+            # reach run_reference_validation's INVESTIGATION_ROOT_SYMLINK
+            # check rather than be reported as merely "not found" (eighth-pass
+            # review H-22: a dangling package-root symlink is environment-
+            # dependent — it may resolve to something entirely different on
+            # another machine, so it must never be silently invisible).
+            if not investigation_paths[0].exists() and not investigation_paths[0].is_symlink():
                 print(f"ERROR: Investigation '{args.investigation}' not found")
                 sys.exit(1)
         else:
+            # Same H-22 reasoning for default discovery: p.is_dir() is False
+            # for a dangling symlink, which would otherwise silently vanish
+            # before the symlink validator ever sees it.
             investigation_paths = sorted(
                 p for p in investigations_dir.iterdir()
-                if p.is_dir() and not p.name.startswith("_")
+                if not p.name.startswith("_") and (p.is_symlink() or p.is_dir())
             )
     except OSError as e:
         print(f"ERROR: Could not enumerate '{investigations_dir}': {e}")
@@ -190,10 +197,8 @@ def main():
             print("is intentional (e.g., pre-content CI combined with --self-test).")
             exit_code = 1
     else:
-        passed, results = run_all_checks(
-            investigation_paths, schema_dir, args.verbose, checks, "investigations"
-        )
-        print_results(results, "investigations")
+        passed, results = run_all_checks(investigation_paths, schema_dir, args.verbose, checks)
+        print_results(results)
         if not passed:
             exit_code = 1
 

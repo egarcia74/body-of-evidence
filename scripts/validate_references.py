@@ -37,7 +37,7 @@ validating nothing.
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import Diagnostic, iter_entities, find_manifest, find_all_symlinks, load_yaml
+from boe_files import Diagnostic, iter_entities, find_manifest, find_all_symlinks, find_traversal_errors, load_yaml
 
 VALIDATOR = "references"
 
@@ -144,7 +144,8 @@ def expected_type(ref_id: str) -> str:
 
 def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
               want_type: str | None = None, entity_package: Path | None = None,
-              current_maps: dict[Path, dict] | None = None):
+              current_maps: dict[Path, dict] | None = None,
+              referencing_is_current: bool = True):
     """
     Check one reference. `field` is the location (JSON-pointer-ish, e.g.
     'claim_id' or 'link_ids[2]') — carried on every diagnostic so tests and
@@ -162,6 +163,17 @@ def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
     the right package is not enough — it must be the package's CURRENT
     version of that id, or the reference points at something the release
     does not actually contain (seventh-pass review H-20).
+
+    `referencing_is_current` (eighth-pass review H-21): the H-20 currency
+    rule is about the CURRENT released graph — it must not be imposed on a
+    reference made BY a historical/superseded entity version. Historical
+    files are legitimately unmanifested by design (D-009), and a historical
+    link describing what it referenced AT THAT TIME must remain valid even
+    if the referenced entity has since been retired entirely. Only
+    references originating from a version that is itself current are held
+    to the "target must also be current" rule; historical referencing
+    entities still get REF_NOT_FOUND / REF_TYPE_MISMATCH / REF_WRONG_PACKAGE
+    checks — those are basic integrity facts, not release-graph membership.
     """
     if not ref_id:
         return
@@ -189,7 +201,7 @@ def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
             ))
         return  # Nothing meaningful to say about currency in the wrong package.
 
-    if entity_package is not None and current_maps is not None:
+    if entity_package is not None and current_maps is not None and referencing_is_current:
         current_map = current_maps.get(entity_package, {})
         if ref_id not in current_map:
             errors.append(_err(
@@ -204,9 +216,13 @@ def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
 
 def check_ref_list(ref_ids, id_index, path, field: str, errors,
                     want_type=None, entity_package: Path | None = None,
-                    current_maps: dict[Path, dict] | None = None):
+                    current_maps: dict[Path, dict] | None = None,
+                    referencing_is_current: bool = True):
     for idx, ref_id in enumerate(ref_ids or []):
-        check_ref(ref_id, id_index, path, f"{field}[{idx}]", errors, want_type, entity_package, current_maps)
+        check_ref(
+            ref_id, id_index, path, f"{field}[{idx}]", errors, want_type,
+            entity_package, current_maps, referencing_is_current,
+        )
 
 
 def validate_references_in_file(
@@ -216,11 +232,31 @@ def validate_references_in_file(
     errors = []
     t = data.get("type", "unknown")
 
+    # H-21 (eighth-pass review): the manifest-currency rule (H-20) applies to
+    # the CURRENT released graph. A file is only held to "my references must
+    # also be current" if IT is current — i.e. the manifest's current_map
+    # maps this file's own id to this file's own version_id. A historical/
+    # superseded referencing file (current_map doesn't list its version_id,
+    # possibly because it doesn't list the id at all) is exempt: its
+    # references are still checked for existence/type/package, just not
+    # manifest currency, so history stays valid after a referenced entity is
+    # later retired entirely.
+    referencing_is_current = True
+    if entity_package is not None and current_maps is not None:
+        current_map = current_maps.get(entity_package, {})
+        referencing_is_current = current_map.get(data.get("id")) == data.get("version_id")
+
     def ref(field, ref_id, want_type=None):
-        check_ref(ref_id, id_index, yaml_file, field, errors, want_type, entity_package, current_maps)
+        check_ref(
+            ref_id, id_index, yaml_file, field, errors, want_type,
+            entity_package, current_maps, referencing_is_current,
+        )
 
     def ref_list(field, ref_ids, want_type=None):
-        check_ref_list(ref_ids, id_index, yaml_file, field, errors, want_type, entity_package, current_maps)
+        check_ref_list(
+            ref_ids, id_index, yaml_file, field, errors, want_type,
+            entity_package, current_maps, referencing_is_current,
+        )
 
     for field, is_list, want_type in REFERENCE_FIELDS.get(t, []):
         (ref_list if is_list else ref)(field, data.get(field), want_type)
@@ -320,7 +356,7 @@ def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str
     return None
 
 
-def validate_manifest(inv_path: Path, id_index: dict, version_index: dict):
+def validate_manifest(inv_path: Path):
     """
     The manifest is the release authority — validate it hard:
     - it must exist (a package without a manifest has no defined current state)
@@ -587,6 +623,20 @@ def run_reference_validation(
             f"validation if broken)"
         ))
 
+    # A subtree os.walk could not list (e.g. permission denied) is fail-
+    # closed, not silently skipped (eighth-pass review M-22): a package
+    # cannot be certified when part of it was never actually inspected —
+    # an unreadable directory could just as easily be hiding a prohibited
+    # symlink or a policy-violating entity file.
+    for inv_path, exc in find_traversal_errors(real_investigation_paths):
+        failed_dir = getattr(exc, "filename", None) or inv_path
+        all_errors.append(_err(
+            "PACKAGE_SUBTREE_UNREADABLE", failed_dir,
+            f"{failed_dir}: could not list directory contents ({exc}) — a "
+            f"package cannot be certified when part of it was not "
+            f"inspectable"
+        ))
+
     # Pass 1: index all defined IDs and versions. id_index is a MULTIMAP —
     # a stable id can legitimately appear in more than one file (D-009
     # intra-package version history), so collapsing it to one entry loses
@@ -616,7 +666,7 @@ def run_reference_validation(
     # before Pass 3 runs.
     current_maps: dict[Path, dict] = {}
     for inv_path in real_investigation_paths:
-        manifest_errors, current_map = validate_manifest(inv_path, id_index, version_index)
+        manifest_errors, current_map = validate_manifest(inv_path)
         current_maps[inv_path] = current_map
         all_errors.extend(manifest_errors)
 
