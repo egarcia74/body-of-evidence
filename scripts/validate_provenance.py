@@ -12,9 +12,14 @@ Checks that Source entities have complete provenance and byte-level fixity:
 """
 
 from pathlib import Path
-from typing import Tuple, List
+from typing import List, Tuple
 
-from boe_files import Diagnostic, iter_entities, symlinked_root_diagnostics, traversal_error_diagnostics
+from boe_files import (
+    Diagnostic,
+    iter_entities,
+    symlinked_root_diagnostics,
+    traversal_error_diagnostics,
+)
 
 VALIDATOR = "provenance"
 

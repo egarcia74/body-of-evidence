@@ -35,9 +35,16 @@ validating nothing.
 """
 
 from pathlib import Path
-from typing import Tuple, List
+from typing import List, Tuple
 
-from boe_files import Diagnostic, find_all_symlinks, find_manifest, iter_entities, load_yaml, traversal_error_diagnostics
+from boe_files import (
+    Diagnostic,
+    find_all_symlinks,
+    find_manifest,
+    iter_entities,
+    load_yaml,
+    traversal_error_diagnostics,
+)
 
 VALIDATOR = "references"
 

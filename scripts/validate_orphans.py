@@ -14,9 +14,14 @@ warning only (unassessed evidence is normal during drafting).
 """
 
 from pathlib import Path
-from typing import Tuple, List
+from typing import List, Tuple
 
-from boe_files import Diagnostic, iter_entities, symlinked_root_diagnostics, traversal_error_diagnostics
+from boe_files import (
+    Diagnostic,
+    iter_entities,
+    symlinked_root_diagnostics,
+    traversal_error_diagnostics,
+)
 
 VALIDATOR = "orphans"
 

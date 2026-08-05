@@ -14,8 +14,12 @@ from pathlib import Path
 from typing import List, Tuple
 
 from boe_files import (
-    Diagnostic, find_entity_files, find_manifest, load_yaml,
-    symlinked_root_diagnostics, traversal_error_diagnostics,
+    Diagnostic,
+    find_entity_files,
+    find_manifest,
+    load_yaml,
+    symlinked_root_diagnostics,
+    traversal_error_diagnostics,
 )
 
 try:
