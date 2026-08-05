@@ -21,15 +21,15 @@ jobs:
     # only the Sonar scan is skipped.
     if: github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
-      # TODO: pin actions to full commit SHAs before first tagged release
-      # (GitHub secure-use guidance). Tags used during pre-alpha.
+      # All actions pinned to full commit SHAs per GitHub secure-use
+      # guidance (the `# vX.Y.Z` comments record the tag each SHA matches).
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
       - name: SonarQube Cloud scan
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402 # v4.2.2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
@@ -37,7 +37,7 @@ jobs:
       # gate result without failing CI. Promote this to a required branch
       # protection check once the first scan's baseline is clean.
       - name: Quality gate status (informational)
-        uses: SonarSource/sonarqube-quality-gate-action@v1
+        uses: SonarSource/sonarqube-quality-gate-action@7a5fffe8e523c40e0c740b6bc2712ab503e52efa # v1.2.1
         continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
