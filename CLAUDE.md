@@ -61,4 +61,4 @@ Governance placeholders (CITATION.cff authors, schema `$id` domain — need real
 - British/American English consistent per file (docs currently use organisation with -s).
 - Fixture/example data must be fictional or safely historical; politically neutral where possible.
 - When schemas change: update examples, fixtures, tests, TERMINOLOGY.md, and ARCHITECTURE.md together — the test suite catches example/schema drift.
-- No remote configured yet. Eddie's GitHub folder: `~/Source/Repos/GitHub`.
+- Remote: `origin` → `github.com/egarcia74/body-of-evidence` (public). Eddie's GitHub folder: `~/Source/Repos/GitHub`. Never push without being asked, even though the repo is already public.
