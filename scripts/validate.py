@@ -123,6 +123,12 @@ def main():
                         help="Verify validators against valid/invalid fixtures")
     parser.add_argument("--allow-empty", action="store_true",
                         help="Do not fail when there are no investigations to validate")
+    parser.add_argument("--root", default=None, type=Path,
+                        help="Directory containing investigation package directories "
+                             "(default: <repo>/investigations). Lets the production "
+                             "multi-package discovery path be exercised against a "
+                             "throwaway directory in tests, without mutating the repo "
+                             "(fifth-pass review M-15).")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -133,7 +139,7 @@ def main():
         if not self_test(schema_dir, args.verbose):
             exit_code = 1
 
-    investigations_dir = REPO_ROOT / "investigations"
+    investigations_dir = args.root if args.root is not None else REPO_ROOT / "investigations"
     if args.investigation:
         investigation_paths = [investigations_dir / args.investigation]
         if not investigation_paths[0].exists():

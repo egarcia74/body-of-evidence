@@ -10,6 +10,8 @@ Run with: pytest tests/
 """
 
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -176,67 +178,115 @@ class TestInvalidFixtures:
     """Every invalid fixture must be rejected by the intended check WITH the
     intended error. Fourth-pass review finding M-07/M-10: asserting only a
     substring of one error tolerates extra, unrelated, or cascading
-    diagnostics passing silently (the tracked manifest-symlink-escape
-    fixture emits two diagnostics; the old substring assertion never
-    noticed). Diagnostics are now structured (boe_files.Diagnostic) and each
-    fixture declares its EXACT (validator, code) set across ALL checks —
-    equality, not membership."""
+    diagnostics passing silently. Fifth-pass review finding M-07b: even the
+    exact (validator, code) SET is insufficient — a Python `set` collapses
+    duplicate diagnostics (two dangling references in one file look the
+    same as one) and discards which field/entry each occurrence is about.
 
-    def _all_diagnostics(self, pkg: Path) -> set[tuple[str, str]]:
-        codes = set()
+    Each fixture therefore declares an exact, order-independent but
+    duplicate-preserving MULTISET of (validator, code, path, location)
+    tuples across ALL checks — a sorted list, compared for equality, not a
+    set. `location` is the field or JSON pointer the diagnostic is about
+    (see boe_files.Diagnostic); "" for diagnostics that aren't field-level."""
+
+    def _relativize(self, raw_path: str) -> str:
+        """Diagnostic.path is str(yaml_file), absolute or relative depending
+        on how investigation_paths was built — normalise to repo-relative
+        (lexically, WITHOUT following symlinks — resolving would turn a
+        symlinked package root's own path into its target's path) so
+        expected literals stay short and checkout-location independent.
+        Sentinel paths like '<repo>' pass through unchanged."""
+        p = Path(raw_path)
+        if p.is_absolute():
+            try:
+                return str(p.relative_to(REPO_ROOT))
+            except ValueError:
+                return raw_path
+        return raw_path
+
+    def _all_diagnostics(self, pkg: Path) -> list[tuple[str, str, str, str]]:
+        tuples = []
         for check in ALL_CHECKS:
             _, errors = check(
                 investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
             )
-            codes.update((e.validator, e.code) for e in errors)
-        return codes
+            tuples.extend((e.validator, e.code, self._relativize(e.path), e.location) for e in errors)
+        return sorted(tuples)
 
     @pytest.mark.parametrize(
-        "pkg_name,expected_codes",
+        "pkg_name,expected",
         [
-            ("duplicate-version-id", {("ids", "VERSION_ID_DUPLICATE")}),
-            ("broken-reference", {("references", "REF_NOT_FOUND")}),
-            ("orphan-evidence", {("orphans", "ORPHAN_EVIDENCE")}),
-            ("missing-provenance", {
-                ("schema", "SCHEMA_VALIDATION_ERROR"),
-                ("provenance", "PROVENANCE_MISSING"),
-            }),
-            ("bad-id-format", {
-                ("schema", "SCHEMA_VALIDATION_ERROR"),
-                ("ids", "ID_BAD_FORMAT"),
-            }),
-            ("missing-manifest", {("references", "MANIFEST_MISSING")}),
-            ("revision-unrelated-endpoints", {("references", "REVISION_ENTITY_MISMATCH")}),
-            ("manifest-no-investigation", {("references", "MANIFEST_NO_INVESTIGATION")}),
-            ("manifest-symlink-escape", {
-                ("references", "MANIFEST_PATH_SYMLINK"),
-                # Root cause is the symlink; this is a derived/cascading
-                # diagnostic — the manifest's only Investigation entry is
-                # the rejected symlinked path, so the manifest also has no
-                # accepted Investigation. Declared explicitly, not hidden.
-                ("references", "MANIFEST_NO_INVESTIGATION"),
-            }),
+            ("duplicate-version-id", [
+                ("ids", "VERSION_ID_DUPLICATE", "fixtures/invalid/duplicate-version-id/claim-b.yaml", ""),
+            ]),
+            ("broken-reference", [
+                ("references", "REF_NOT_FOUND", "fixtures/invalid/broken-reference/link-dangling.yaml", "claim_id"),
+                ("references", "REF_NOT_FOUND", "fixtures/invalid/broken-reference/link-dangling.yaml", "evidence_id"),
+            ]),
+            ("orphan-evidence", [
+                ("orphans", "ORPHAN_EVIDENCE", "fixtures/invalid/orphan-evidence/evidence-orphan.yaml", ""),
+            ]),
+            ("missing-provenance", [
+                ("provenance", "PROVENANCE_MISSING", "fixtures/invalid/missing-provenance/source-no-provenance.yaml", ""),
+                ("schema", "SCHEMA_VALIDATION_ERROR", "fixtures/invalid/missing-provenance/source-no-provenance.yaml", "(root)"),
+            ]),
+            ("bad-id-format", [
+                ("ids", "ID_BAD_FORMAT", "fixtures/invalid/bad-id-format/claim-bad-id.yaml", ""),
+                ("schema", "SCHEMA_VALIDATION_ERROR", "fixtures/invalid/bad-id-format/claim-bad-id.yaml", "id"),
+            ]),
+            ("missing-manifest", [
+                ("references", "MANIFEST_MISSING", "fixtures/invalid/missing-manifest", ""),
+            ]),
+            ("revision-unrelated-endpoints", [
+                ("references", "REVISION_ENTITY_MISMATCH",
+                 "fixtures/invalid/revision-unrelated-endpoints/revision-broken.yaml", "old_version_id"),
+            ]),
+            ("manifest-no-investigation", [
+                ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-no-investigation/package.yaml", ""),
+            ]),
+            ("manifest-symlink-escape", [
+                # Root cause is the symlink; MANIFEST_NO_INVESTIGATION is a
+                # derived/cascading diagnostic — the manifest's only
+                # Investigation entry is the rejected symlinked path, so the
+                # manifest also has no accepted Investigation. Declared
+                # explicitly, not hidden (this is the exact case the
+                # fourth-pass review flagged as silently tolerated).
+                ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-symlink-escape/package.yaml", ""),
+                ("references", "MANIFEST_PATH_SYMLINK", "fixtures/invalid/manifest-symlink-escape/package.yaml", "escape.yaml"),
+            ]),
+            ("investigation-root-symlink", [
+                # A tracked symlink AT the package-directory level (not an
+                # entity path inside one) — fifth-pass review H-15. Every
+                # validator refuses to descend into it (boe_files skips a
+                # symlinked root entirely); references reports the precise
+                # root cause, schema reports the resulting empty run.
+                ("references", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
+                ("schema", "SCHEMA_VACUOUS_RUN", "<repo>", ""),
+            ]),
         ],
     )
-    def test_invalid_fixture_rejected(self, pkg_name, expected_codes):
+    def test_invalid_fixture_rejected(self, pkg_name, expected):
         pkg = FIXTURES / "invalid" / pkg_name
         assert pkg.exists(), f"Missing invalid fixture: {pkg_name}"
-        actual_codes = self._all_diagnostics(pkg)
-        assert actual_codes == expected_codes, (
-            f"invalid/{pkg_name}: expected exactly {expected_codes}, "
-            f"got {actual_codes}"
+        actual = self._all_diagnostics(pkg)
+        assert actual == sorted(expected), (
+            f"invalid/{pkg_name}: expected exactly {sorted(expected)}, "
+            f"got {actual}"
         )
 
 
-class TestCrossPackageRevision:
-    """H-02b (fourth-pass review): a Revision must only connect versions
-    owned by its OWN package. fixtures/cross_package/{pkg-a,pkg-b} share a
-    stable claim id across two independent packages on purpose — package
-    A's revision claims a transition from a version that actually lives in
-    package B. This can only be exercised by validating both packages
-    TOGETHER (one list of investigation_paths), which the single-package
-    fixtures/invalid/* self-test loop cannot do — hence a dedicated test
-    rather than another self-test fixture."""
+class TestCrossPackageReferences:
+    """H-02b (fourth-pass) + H-02c (fifth-pass): package ownership must be
+    enforced for Revision endpoints AND for every ordinary cross-entity
+    reference. fixtures/cross_package/{pkg-a,pkg-b} share a stable claim id
+    across two independent packages on purpose: package A's revision claims
+    a transition from a version that actually lives in package B (H-02b),
+    and package A's claim-cross-ref.yaml has an investigation_id pointing
+    directly at package B's Investigation (H-02c — an ordinary reference,
+    not a Revision at all). This can only be exercised by validating both
+    packages TOGETHER (one list of investigation_paths), which the
+    single-package fixtures/invalid/* self-test loop cannot do — hence
+    dedicated tests rather than more self-test fixtures."""
 
     def test_revision_cannot_claim_version_from_another_package(self):
         pkg_a = FIXTURES / "cross_package" / "pkg-a"
@@ -246,10 +296,31 @@ class TestCrossPackageRevision:
         passed, errors = run_reference_validation(
             investigation_paths=[pkg_a, pkg_b], schema_dir=SCHEMA_DIR, verbose=False
         )
-        assert not passed, "Cross-package revision endpoint was not rejected"
+        assert not passed, "Cross-package reference was not rejected"
         codes = {(e.validator, e.code) for e in errors}
         assert ("references", "REVISION_ENDPOINT_WRONG_PACKAGE") in codes, (
             f"Expected REVISION_ENDPOINT_WRONG_PACKAGE, got: {codes}"
+        )
+
+    def test_ordinary_reference_cannot_cross_package_boundary(self):
+        """H-02c: package scoping must apply to EVERY reference type, not
+        only Revision endpoints — this probes an ordinary Claim ->
+        Investigation reference."""
+        pkg_a = FIXTURES / "cross_package" / "pkg-a"
+        pkg_b = FIXTURES / "cross_package" / "pkg-b"
+
+        passed, errors = run_reference_validation(
+            investigation_paths=[pkg_a, pkg_b], schema_dir=SCHEMA_DIR, verbose=False
+        )
+        assert not passed
+        matches = [
+            e for e in errors
+            if e.validator == "references" and e.code == "REF_WRONG_PACKAGE"
+            and e.path.endswith("claim-cross-ref.yaml") and e.location == "investigation_id"
+        ]
+        assert matches, (
+            f"Expected a REF_WRONG_PACKAGE diagnostic for claim-cross-ref.yaml's "
+            f"investigation_id, got: {[(e.validator, e.code, e.path, e.location) for e in errors]}"
         )
 
     def test_each_package_is_independently_well_formed(self):
@@ -260,3 +331,88 @@ class TestCrossPackageRevision:
             for check in (run_schema_validation, run_id_validation, run_orphan_validation, run_provenance_validation):
                 passed, errors = check(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
                 assert passed, f"{pkg_name} unexpectedly failed {check.__name__}: {[str(e) for e in errors]}"
+
+
+class TestSymlinkedPackageRoot:
+    """H-15 (fifth-pass review): an investigation ROOT that is itself a
+    symlink must be rejected before any file discovery — `p.is_dir()` in
+    package discovery is true for a symlink to a directory, so discovery
+    alone cannot filter it out. Covered as a self-test fixture too
+    (fixtures/invalid/investigation-root-symlink), but the underlying
+    boe_files helpers are worth testing directly since every validator
+    depends on them."""
+
+    def test_find_entity_files_skips_symlinked_root(self):
+        import boe_files
+        real_pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        symlinked_pkg = FIXTURES / "invalid" / "investigation-root-symlink"
+        assert symlinked_pkg.is_symlink(), "Fixture must be a tracked symlink"
+        assert symlinked_pkg.resolve() == real_pkg.resolve(), (
+            "Fixture must point at a real, otherwise-valid package — "
+            "proving rejection is about the symlink, not broken content"
+        )
+        files_via_symlink = boe_files.find_entity_files([symlinked_pkg])
+        assert files_via_symlink == [], (
+            "find_entity_files must not traverse a symlinked package root "
+            f"at all, got: {files_via_symlink}"
+        )
+
+    def test_find_manifest_refuses_symlinked_root(self):
+        import boe_files
+        symlinked_pkg = FIXTURES / "invalid" / "investigation-root-symlink"
+        assert boe_files.find_manifest(symlinked_pkg) is None
+
+
+class TestCliMultiPackageDiscovery:
+    """M-15 (fifth-pass review): the cross-package tests above call
+    run_reference_validation directly with a hand-built investigation_paths
+    list. They never exercise validate.py's actual CLI discovery route
+    (argv parsing, then `investigations_dir.iterdir()`), which is a
+    materially different code path and the one real users and CI actually
+    run. `--root` (added in response to this finding) lets that exact route
+    be exercised against a throwaway directory instead of mutating the
+    repository's real investigations/."""
+
+    VALIDATE_PY = REPO_ROOT / "scripts" / "validate.py"
+
+    def _run_cli(self, root: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(self.VALIDATE_PY), "--root", str(root), "--verbose"],
+            capture_output=True, text=True,
+        )
+
+    def test_cli_accepts_valid_sibling_package(self, tmp_path):
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", tmp_path / "harbour-tender-inquiry")
+        result = self._run_cli(tmp_path)
+        assert result.returncode == 0, (
+            f"CLI rejected a known-valid package under --root:\n{result.stdout}\n{result.stderr}"
+        )
+
+    def test_cli_rejects_cross_package_reference_via_real_discovery(self, tmp_path):
+        """The same defect fixtures/cross_package/{pkg-a,pkg-b} prove via
+        direct function calls, but discovered the way validate.py actually
+        discovers packages in production: multiple sibling directories
+        under one root, found by iterdir(), not a hand-assembled list."""
+        shutil.copytree(FIXTURES / "cross_package" / "pkg-a", tmp_path / "pkg-a")
+        shutil.copytree(FIXTURES / "cross_package" / "pkg-b", tmp_path / "pkg-b")
+        result = self._run_cli(tmp_path)
+        assert result.returncode != 0, (
+            f"CLI accepted a cross-package reference under --root:\n{result.stdout}"
+        )
+        assert "belongs to package" in result.stdout, (
+            f"Expected a package-ownership diagnostic in CLI output, got:\n{result.stdout}"
+        )
+
+    def test_cli_rejects_symlinked_sibling_package(self, tmp_path):
+        """Same H-15 defect, via real discovery: a symlinked directory
+        satisfies iterdir()'s is_dir() filter just like a real one."""
+        real_target = tmp_path / "_outside"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", real_target)
+        (tmp_path / "alias").symlink_to(real_target, target_is_directory=True)
+        result = self._run_cli(tmp_path)
+        assert result.returncode != 0, (
+            f"CLI accepted a symlinked package root under --root:\n{result.stdout}"
+        )
+        assert "symlink" in result.stdout.lower(), (
+            f"Expected a symlink diagnostic in CLI output, got:\n{result.stdout}"
+        )

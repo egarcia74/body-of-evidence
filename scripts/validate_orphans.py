@@ -25,7 +25,7 @@ def run_orphan_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[str]]:
+) -> Tuple[bool, List[Diagnostic]]:
     all_errors = []
     evidence_files = {}       # evidence_id -> path
     linked_evidence = set()   # evidence_ids referenced by at least one link

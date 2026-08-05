@@ -25,8 +25,8 @@ except ImportError:
 VALIDATOR = "schema"
 
 
-def _err(code: str, path, message: str) -> Diagnostic:
-    return Diagnostic(code, VALIDATOR, str(path), message)
+def _err(code: str, path, message: str, location: str = "") -> Diagnostic:
+    return Diagnostic(code, VALIDATOR, str(path), message, location)
 
 
 def build_registry(schema_dir: Path):
@@ -58,7 +58,8 @@ def validate_data(data: dict, schema: dict, registry, context: str) -> list[Diag
         json_path = " > ".join(str(p) for p in error.path) or "(root)"
         errors.append(_err(
             "SCHEMA_VALIDATION_ERROR", context,
-            f"{context}: {error.message} (at: {json_path})"
+            f"{context}: {error.message} (at: {json_path})",
+            json_path,
         ))
     return errors
 
@@ -67,7 +68,7 @@ def run_schema_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[str]]:
+) -> Tuple[bool, List[Diagnostic]]:
     """Returns (passed, errors). Counts validated files so callers can detect vacuous runs."""
     if not JSONSCHEMA_AVAILABLE:
         return False, [_err(

@@ -8,6 +8,17 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to fifth-pass review (2026-08-05, D-019)
+
+- Package-scoping now applies to EVERY cross-entity reference (claim→investigation, evidence→source, assessment→claim, etc.), not only Revision endpoints; a reference crossing a package boundary is rejected (`REF_WRONG_PACKAGE`) by default until an explicit dependency-declaration mechanism exists
+- A symlinked investigation package ROOT (not just a symlinked entity path inside one) is now rejected before any file discovery, everywhere — `boe_files.find_entity_files`/`find_manifest` refuse to descend into one, `references` reports the precise cause
+- `LICENSE` replaced with the byte-for-byte official Apache-2.0 text (the previous "fix" only removed an appended block; the surrounding text itself was a paraphrase, which is why GitHub kept reporting `NOASSERTION`)
+- `Diagnostic` gained a `location` field; invalid-fixture tests now assert an exact, duplicate-preserving list of `(validator, code, path, location)`, not a deduplicating set — closes the gap where a fixture with two intended defects could pass after fixing only one
+- `validate.py --root` added so the actual CLI multi-package discovery path can be tested against a throwaway directory; new subprocess-level integration tests cover a valid package, a cross-package reference, and a symlinked sibling package
+- CODEOWNERS and CITATION.cff comments corrected to describe actual repository state
+- Dependabot vulnerability alerts enabled
+- 32 tests (was 25)
+
 ### Changed — response to fourth-pass review (2026-08-05, D-018)
 
 - All validators now emit structured diagnostics (`code`, `validator`, `path`, `message`) instead of free-form strings; fixture tests assert the exact `(validator, code)` set per invalid fixture across all checks, not a substring in one named check (the tracked manifest-symlink-escape fixture's previously-unnoticed second diagnostic is now declared explicitly)

@@ -1,0 +1,10 @@
+# FIXTURE (H-02c) — an ORDINARY reference (not a Revision endpoint)
+# deliberately pointing at package B's Investigation. Proves package
+# scoping applies to every reference type, not only Revision endpoints.
+id: "boe:claim:01JF0000000000000000000805"
+version_id: "01JFV000000000000000000805"
+type: "claim"
+investigation_id: "boe:investigation:01JF0000000000000000000804"
+status: "draft"
+statement: "Fixture claim in package A whose investigation_id deliberately points at package B's investigation."
+created_at: "2026-08-04T00:00:00Z"

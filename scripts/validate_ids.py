@@ -61,7 +61,7 @@ def run_id_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[str]]:
+) -> Tuple[bool, List[Diagnostic]]:
     all_errors = []
     seen_versions = {}       # version_id -> path (must be globally unique)
     seen_pairs = {}          # (id, version_id) -> path (a file duplicated verbatim)

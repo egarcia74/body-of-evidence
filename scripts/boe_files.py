@@ -24,22 +24,37 @@ class Diagnostic:
     change can accidentally satisfy a substring match) and cannot be
     consumed reliably by editors, AI agents, or MCP clients. `code` is the
     stable, machine-checkable identity of a diagnostic; `message` remains
-    for humans.
+    for humans. `location` (fifth-pass review finding M-07b) is the
+    field name, JSON pointer segment, or manifest entry identifier the
+    diagnostic is about, when it is about one — empty string for
+    diagnostics that are not field-specific (e.g. a whole-package defect).
+    It exists so tests can assert on WHICH occurrence failed, not just
+    that a (validator, code) pair occurred somewhere.
     """
 
     code: str
     validator: str
     path: str
     message: str
+    location: str = ""
 
     def __str__(self) -> str:
         return self.message
 
 
 def find_entity_files(investigation_paths: list[Path]) -> list[Path]:
-    """All entity YAML files (both .yaml and .yml), excluding package manifests."""
+    """
+    All entity YAML files (both .yaml and .yml), excluding package
+    manifests. An investigation root that is itself a symlink is skipped
+    entirely — not just flagged — so no validator ever reads or parses
+    content that lives outside the checkout (fifth-pass review finding
+    H-15; `p.is_dir()` in package discovery is true for a symlink to a
+    directory, so this cannot rely on discovery having filtered it out).
+    """
     files = []
     for inv_path in investigation_paths:
+        if inv_path.is_symlink():
+            continue
         for pattern in ("*.yaml", "*.yml"):
             files.extend(
                 p for p in inv_path.rglob(pattern)
@@ -49,7 +64,10 @@ def find_entity_files(investigation_paths: list[Path]) -> list[Path]:
 
 
 def find_manifest(investigation_path: Path) -> Optional[Path]:
-    """The package manifest for an investigation, if present."""
+    """The package manifest for an investigation, if present. A symlinked
+    investigation root has no manifest by definition (see find_entity_files)."""
+    if investigation_path.is_symlink():
+        return None
     manifest = investigation_path / MANIFEST_NAME
     return manifest if manifest.exists() else None
 

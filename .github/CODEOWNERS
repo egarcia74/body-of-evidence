@@ -8,7 +8,10 @@
 # Default owner for everything not matched below
 *                               @egarcia74
 
-# Schema changes require maintainer review (two reviewers)
+# Schema changes route through the owner below. NOTE: PR review is not
+# currently required by branch protection (solo maintainer) — this file
+# only controls automatic review REQUESTS, not a merge gate. Revisit the
+# "two reviewers" aspiration once a second maintainer exists.
 schema/                         @egarcia74
 schema/common.schema.json       @egarcia74
 

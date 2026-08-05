@@ -1,5 +1,6 @@
-# NOTE: repository-code/url are placeholders until a public remote exists,
-# and authors will be completed when the maintainer team is established.
+# NOTE: repository-code/url are the live public remote. `authors` will be
+# completed with real names when the maintainer team is established —
+# it is currently a placeholder attribution, not a citation defect.
 cff-version: 1.2.0
 message: "If you use Body of Evidence in your research, please cite it using this metadata."
 type: software

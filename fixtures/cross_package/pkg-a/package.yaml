@@ -14,3 +14,6 @@ entities:
   - id: "boe:revision:01JF0000000000000000000803"
     version_id: "01JFV000000000000000000803"
     path: "revision-cross-package.yaml"
+  - id: "boe:claim:01JF0000000000000000000805"
+    version_id: "01JFV000000000000000000805"
+    path: "claim-cross-ref.yaml"

@@ -77,7 +77,7 @@ def run_provenance_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[str]]:
+) -> Tuple[bool, List[Diagnostic]]:
     all_errors = []
     for yaml_file, data in iter_entities(investigation_paths):
         if data.get("type") != "source":
