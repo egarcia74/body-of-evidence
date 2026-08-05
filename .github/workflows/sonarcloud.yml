@@ -1,0 +1,39 @@
+name: SonarQube Cloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  sonarcloud:
+    name: SonarQube Cloud scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Secrets aren't available to PRs from forks; skip rather than fail.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      # TODO: pin actions to full commit SHAs before first tagged release
+      # (GitHub secure-use guidance). Tags used during pre-alpha.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarQube Cloud scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # Informational only during pre-alpha baselining: report the quality
+      # gate result without failing CI. Promote this to a required branch
+      # protection check once the first scan's baseline is clean.
+      - name: Quality gate status (informational)
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
