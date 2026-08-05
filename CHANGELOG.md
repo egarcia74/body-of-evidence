@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to sixth-pass review (2026-08-05, D-020)
+
+- `id_index` is now a multimap (stable id -> list of owning files/packages), not a lossy single-owner map; a reference resolvable within the referencing entity's own package is preferred over a same-id entry in another package, fixing a false-positive `REF_WRONG_PACKAGE` the D-019 test fixture itself was producing
+- Reference checking is now driven by a declarative `REFERENCE_FIELDS`/`NESTED_REFERENCE_FIELDS` registry instead of a hand-maintained dispatch; five previously-unchecked schema fields (`event`/`person`/`organisation`/`relationship.investigation_ids`, `review.specific_concerns[].referenced_entity_id`) are now validated, plus a sixth (`investigation.related_investigations`) found by the new completeness test that scans every schema for reference-shaped fields and asserts the registry matches exactly
+- Symlinked entity files (and a symlinked `package.yaml` itself) are now rejected everywhere, not only symlinked package roots or manifest-listed paths — closes the gap where an unmanifested historical-version symlink could read content from outside the package, or crash validation if broken
+- `load_yaml` now catches filesystem errors (e.g. a dangling symlink) as a diagnostic instead of an uncaught exception
+- `validate.py --root` now validates the path exists, isn't a symlink, and is a directory before use, instead of crashing
+- 44 tests (was 32)
+
 ### Changed — response to fifth-pass review (2026-08-05, D-019)
 
 - Package-scoping now applies to EVERY cross-entity reference (claim→investigation, evidence→source, assessment→claim, etc.), not only Revision endpoints; a reference crossing a package boundary is rejected (`REF_WRONG_PACKAGE`) by default until an explicit dependency-declaration mechanism exists

@@ -1,0 +1,17 @@
+# INVALID FIXTURE — claim-unlisted-symlink.yaml is a real tracked symlink
+# to content elsewhere in the repo, deliberately NOT listed here. Historical/
+# superseded version files are legitimately unmanifested by design (D-009),
+# so manifest-path containment alone cannot see this — sixth-pass review H-19.
+manifest_version: "1"
+investigation_id: "boe:investigation:01JF0000000000000000000901"
+slug: "unmanifested-symlink"
+release_version: "0.1.0"
+schema_version: "0.2.0"
+methodology_version: "0.2.0"
+entities:
+  - id: "boe:investigation:01JF0000000000000000000901"
+    version_id: "01JFV000000000000000000901"
+    path: "investigation.yaml"
+  - id: "boe:claim:01JF0000000000000000000902"
+    version_id: "01JFV000000000000000000902"
+    path: "claim.yaml"

@@ -6,6 +6,15 @@
 
 extends: default
 
+# fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml is
+# a real tracked symlink whose target does NOT exist on purpose — it proves
+# the validators reject a dangling unmanifested symlink instead of crashing
+# (D-020/H-19). yamllint itself crashes (not just errors) trying to open a
+# dangling symlink, so it must be excluded from the lint pass; the
+# validators, not yamllint, are what's supposed to examine this file.
+ignore: |
+  fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml
+
 rules:
   # Integrity-relevant: keep as errors
   key-duplicates: enable

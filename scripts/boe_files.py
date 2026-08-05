@@ -45,11 +45,23 @@ class Diagnostic:
 def find_entity_files(investigation_paths: list[Path]) -> list[Path]:
     """
     All entity YAML files (both .yaml and .yml), excluding package
-    manifests. An investigation root that is itself a symlink is skipped
-    entirely — not just flagged — so no validator ever reads or parses
-    content that lives outside the checkout (fifth-pass review finding
-    H-15; `p.is_dir()` in package discovery is true for a symlink to a
-    directory, so this cannot rely on discovery having filtered it out).
+    manifests and excluding any file — or package root — that is itself a
+    symlink.
+
+    An investigation root that is a symlink is skipped entirely (fifth-pass
+    review H-15; `p.is_dir()` in package discovery is true for a symlink to
+    a directory, so this cannot rely on discovery having filtered it out).
+
+    An individual entity file that is a symlink is ALSO skipped, even when
+    it isn't listed in the manifest (sixth-pass review H-19). Historical/
+    superseded version files are legitimately unmanifested by design
+    (D-009) — that's exactly why they can't rely on the manifest-path
+    containment check, which only inspects listed paths. A symlinked
+    unmanifested file would otherwise let validation silently read content
+    from outside the package (or crash on a broken symlink; see
+    load_yaml's OSError handling). See also
+    validate_references.find_symlinked_entity_paths, which turns this
+    silent exclusion into an explicit diagnostic.
     """
     files = []
     for inv_path in investigation_paths:
@@ -58,18 +70,43 @@ def find_entity_files(investigation_paths: list[Path]) -> list[Path]:
         for pattern in ("*.yaml", "*.yml"):
             files.extend(
                 p for p in inv_path.rglob(pattern)
-                if p.name != MANIFEST_NAME
+                if p.name != MANIFEST_NAME and not p.is_symlink()
             )
     return sorted(files)
 
 
 def find_manifest(investigation_path: Path) -> Optional[Path]:
     """The package manifest for an investigation, if present. A symlinked
-    investigation root has no manifest by definition (see find_entity_files)."""
+    investigation root has no manifest by definition (see find_entity_files).
+    A manifest FILE that is itself a symlink is also refused — it would
+    otherwise let arbitrary external content be read and trusted as the
+    package's release authority (sixth-pass review H-19's principle applied
+    to package.yaml, not just entity files)."""
     if investigation_path.is_symlink():
         return None
     manifest = investigation_path / MANIFEST_NAME
+    if manifest.is_symlink():
+        return None
     return manifest if manifest.exists() else None
+
+
+def find_symlinked_entity_paths(investigation_paths: list[Path]) -> list[Path]:
+    """
+    Every YAML file (entity file OR package.yaml manifest) that was
+    excluded from find_entity_files / find_manifest because it is itself a
+    symlink — surfaced separately so a validator can turn that silent
+    exclusion into an explicit diagnostic (sixth-pass review H-19) instead
+    of the package simply appearing to have fewer files than it does.
+    Symlinked package ROOTS are not included here; those are reported
+    separately (see run_reference_validation's INVESTIGATION_ROOT_SYMLINK).
+    """
+    found = []
+    for inv_path in investigation_paths:
+        if inv_path.is_symlink():
+            continue
+        for pattern in ("*.yaml", "*.yml"):
+            found.extend(p for p in inv_path.rglob(pattern) if p.is_symlink())
+    return sorted(found)
 
 
 def load_yaml(path: Path) -> Tuple[Optional[dict], Optional[str]]:
@@ -100,6 +137,11 @@ def load_yaml(path: Path) -> Tuple[Optional[dict], Optional[str]]:
             data = yaml.load(f, Loader=StrictLoader)
     except yaml.YAMLError as e:
         return None, f"{path}: YAML error: {e}"
+    except OSError as e:
+        # A broken symlink (or a permissions/IO failure) must become a
+        # diagnostic, not an uncaught crash of the whole validation run
+        # (sixth-pass review H-19).
+        return None, f"{path}: Could not read file: {e}"
     if data is not None and not isinstance(data, dict):
         return None, f"{path}: Expected a mapping at the root level"
     return data, None

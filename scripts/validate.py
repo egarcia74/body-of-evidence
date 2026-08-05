@@ -140,6 +140,23 @@ def main():
             exit_code = 1
 
     investigations_dir = args.root if args.root is not None else REPO_ROOT / "investigations"
+
+    # Validate --root explicitly rather than letting iterdir() raise —
+    # an unhandled traceback is not a diagnostic (sixth-pass review M-18).
+    # Also refuse a symlinked root, consistent with the package-root
+    # symlink policy applied to individual investigation directories.
+    if args.root is not None:
+        if not investigations_dir.exists():
+            print(f"ERROR: --root '{investigations_dir}' does not exist")
+            sys.exit(1)
+        if investigations_dir.is_symlink():
+            print(f"ERROR: --root '{investigations_dir}' is a symlink — refusing "
+                  f"(it could point anywhere on disk)")
+            sys.exit(1)
+        if not investigations_dir.is_dir():
+            print(f"ERROR: --root '{investigations_dir}' is not a directory")
+            sys.exit(1)
+
     if args.investigation:
         investigation_paths = [investigations_dir / args.investigation]
         if not investigation_paths[0].exists():

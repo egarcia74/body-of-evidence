@@ -245,12 +245,24 @@ class TestInvalidFixtures:
                 ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-no-investigation/package.yaml", ""),
             ]),
             ("manifest-symlink-escape", [
-                # Root cause is the symlink; MANIFEST_NO_INVESTIGATION is a
-                # derived/cascading diagnostic — the manifest's only
-                # Investigation entry is the rejected symlinked path, so the
-                # manifest also has no accepted Investigation. Declared
-                # explicitly, not hidden (this is the exact case the
-                # fourth-pass review flagged as silently tolerated).
+                # Three diagnostics, all root-cause-adjacent to the same
+                # tracked symlink, all declared explicitly rather than
+                # picking one and hiding the rest:
+                # - MANIFEST_PATH_SYMLINK: the manifest-listed path check
+                #   (fourth-pass M-11) catches it as a LISTED entry.
+                # - ENTITY_FILE_SYMLINK: sixth-pass H-19's unconditional
+                #   discovery-level check ALSO independently catches it —
+                #   this is deliberately redundant with the check above;
+                #   H-19 exists specifically because a symlinked file might
+                #   NOT be manifest-listed (see investigation-root-symlink
+                #   for the package-root case, and the H-19 fixtures below
+                #   for the unmanifested case).
+                # - MANIFEST_NO_INVESTIGATION: derived/cascading — the
+                #   manifest's only Investigation entry is the rejected
+                #   symlinked path, so the manifest also has no accepted
+                #   Investigation (the case the fourth-pass review flagged
+                #   as silently tolerated by the old substring-only test).
+                ("references", "ENTITY_FILE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
                 ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-symlink-escape/package.yaml", ""),
                 ("references", "MANIFEST_PATH_SYMLINK", "fixtures/invalid/manifest-symlink-escape/package.yaml", "escape.yaml"),
             ]),
@@ -262,6 +274,24 @@ class TestInvalidFixtures:
                 # root cause, schema reports the resulting empty run.
                 ("references", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
                 ("schema", "SCHEMA_VACUOUS_RUN", "<repo>", ""),
+            ]),
+            ("unmanifested-symlink", [
+                # sixth-pass review H-19: a symlinked entity file that is
+                # NOT listed in package.yaml at all (unlike
+                # manifest-symlink-escape's escape.yaml, which IS listed).
+                # The manifest-path containment check can't see this by
+                # construction — it only inspects listed paths — which is
+                # exactly why H-19 required an unconditional discovery-level
+                # check independent of the manifest.
+                ("references", "ENTITY_FILE_SYMLINK",
+                 "fixtures/invalid/unmanifested-symlink/claim-unlisted-symlink.yaml", ""),
+            ]),
+            ("broken-unmanifested-symlink", [
+                # Same as above, but the symlink target doesn't exist. Must
+                # produce this diagnostic, not an uncaught FileNotFoundError
+                # crashing the whole run (sixth-pass review H-19).
+                ("references", "ENTITY_FILE_SYMLINK",
+                 "fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml", ""),
             ]),
         ],
     )
@@ -332,6 +362,138 @@ class TestCrossPackageReferences:
                 passed, errors = check(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
                 assert passed, f"{pkg_name} unexpectedly failed {check.__name__}: {[str(e) for e in errors]}"
 
+    def test_locally_resolvable_reference_is_not_a_false_positive(self):
+        """H-17 (sixth-pass review): claim-cross-ref shares its stable id
+        (...802) with package B's claim-old.yaml. Before H-17, a lossy
+        last-writer-wins id_index made revision-cross-package.yaml's
+        entity_id resolve to WHICHEVER package was indexed last — even
+        though a locally valid match exists in pkg-a itself — producing a
+        spurious REF_WRONG_PACKAGE for a reference that is, in fact,
+        resolvable within its own package. Only the genuinely cross-package
+        references (asserted in the two tests above) should be flagged."""
+        pkg_a = FIXTURES / "cross_package" / "pkg-a"
+        pkg_b = FIXTURES / "cross_package" / "pkg-b"
+
+        for order in ([pkg_a, pkg_b], [pkg_b, pkg_a]):
+            _, errors = run_reference_validation(
+                investigation_paths=order, schema_dir=SCHEMA_DIR, verbose=False
+            )
+            false_positives = [
+                e for e in errors
+                if e.path.endswith("revision-cross-package.yaml") and e.location == "entity_id"
+            ]
+            assert not false_positives, (
+                f"revision-cross-package.yaml's entity_id is locally resolvable "
+                f"within pkg-a and must not be flagged, got: "
+                f"{[(e.code, e.location) for e in false_positives]} (order={[p.name for p in order]})"
+            )
+
+
+def _is_boe_id_pattern(node: dict) -> bool:
+    """True if a JSON Schema node constrains a string to the
+    boe:<type>:<ulid> ID pattern, directly (an inline `pattern`) or via a
+    $ref to a common definition following that same naming convention
+    (e.g. investigationReference)."""
+    if node.get("pattern", "").startswith("^boe:"):
+        return True
+    return node.get("$ref", "").endswith("Reference")
+
+
+def _reference_shaped_field_paths(schema: dict, prefix: str = "") -> set[str]:
+    """
+    Recursively find every property path in a schema whose value is
+    constrained to the boe: ID pattern — i.e. every field that IS a
+    reference, regardless of whether any validator currently checks it.
+    `id` and `version_id` are excluded: they are an entity's OWN identity,
+    not an outbound reference to something else. Array-of-object
+    properties are traversed with a '[]' path segment, matching the
+    convention validate_references.NESTED_REFERENCE_FIELDS uses.
+
+    This is the schema-completeness half of sixth-pass review H-18: the
+    reviewer found five reference fields that existed in schemas but had
+    no corresponding check at all. A registry entry can be wrong, but it
+    can't silently not exist — this scanner finds the field independent of
+    whatever validate_references.py currently claims to cover, so the
+    completeness test below can compare the two and fail loudly on drift.
+    """
+    found = set()
+    for name, node in (schema.get("properties") or {}).items():
+        if name in ("id", "version_id"):
+            continue
+        path = f"{prefix}{name}"
+        if node.get("type") == "array":
+            items = node.get("items") or {}
+            if items.get("type") == "object":
+                found |= _reference_shaped_field_paths(items, f"{path}[].")
+                continue
+            if _is_boe_id_pattern(items):
+                found.add(path)
+            continue
+        if _is_boe_id_pattern(node):
+            found.add(path)
+    return found
+
+
+class TestReferenceRegistryCompleteness:
+    """H-18 (sixth-pass review): the reviewer found five schema-declared
+    reference fields (event/person/organisation/relationship's
+    investigation_ids, review.specific_concerns[].referenced_entity_id)
+    that validate_references_in_file's old hand-maintained if/elif chain
+    never checked at all — dangling, wrong-type, or cross-package values in
+    those fields produced zero diagnostics. The fix replaced the chain with
+    a declarative registry (REFERENCE_FIELDS + NESTED_REFERENCE_FIELDS);
+    THIS test is what stops that regressing — it scans every schema for
+    reference-shaped fields independent of the registry and asserts the two
+    agree, so a future schema change that adds a reference field without a
+    matching registry entry fails a test instead of silently validating
+    nothing."""
+
+    def test_every_schema_reference_field_is_registered(self):
+        import validate_references as vr
+
+        registered: dict[str, set[str]] = {}
+        for entity_type, fields in vr.REFERENCE_FIELDS.items():
+            registered[entity_type] = {field for field, _, _ in fields}
+        for entity_type, paths in vr.NESTED_REFERENCE_FIELDS.items():
+            registered.setdefault(entity_type, set()).update(paths)
+
+        missing = {}
+        for schema_file in sorted(SCHEMA_DIR.glob("*.schema.json")):
+            entity_type = schema_file.stem.replace(".schema", "")
+            if entity_type in ("common", "package"):
+                continue  # not entity types; package.yaml has its own checks
+            with open(schema_file) as f:
+                schema = json.load(f)
+            found = _reference_shaped_field_paths(schema)
+            gap = found - registered.get(entity_type, set())
+            if gap:
+                missing[entity_type] = gap
+
+        assert not missing, (
+            f"Schema-declared reference fields with no validate_references.py "
+            f"registry entry (dangling/wrong-type/cross-package values in "
+            f"these fields currently validate as if nothing were wrong): "
+            f"{missing}"
+        )
+
+    def test_registry_has_no_stale_entries(self):
+        """The inverse check: a registry entry for a field the schema no
+        longer declares is dead code, not a safety issue, but it's worth
+        catching too — it means the registry and the schema have drifted."""
+        import validate_references as vr
+
+        for schema_file in sorted(SCHEMA_DIR.glob("*.schema.json")):
+            entity_type = schema_file.stem.replace(".schema", "")
+            if entity_type in ("common", "package"):
+                continue
+            with open(schema_file) as f:
+                schema = json.load(f)
+            found = _reference_shaped_field_paths(schema)
+            registered = {field for field, _, _ in vr.REFERENCE_FIELDS.get(entity_type, [])}
+            registered |= set(vr.NESTED_REFERENCE_FIELDS.get(entity_type, []))
+            stale = registered - found
+            assert not stale, f"{entity_type}: registry entries with no matching schema field: {stale}"
+
 
 class TestSymlinkedPackageRoot:
     """H-15 (fifth-pass review): an investigation ROOT that is itself a
@@ -361,6 +523,54 @@ class TestSymlinkedPackageRoot:
         import boe_files
         symlinked_pkg = FIXTURES / "invalid" / "investigation-root-symlink"
         assert boe_files.find_manifest(symlinked_pkg) is None
+
+
+class TestUnmanifestedEntitySymlinks:
+    """H-19 (sixth-pass review): unlike H-15's package-ROOT symlinks, these
+    are individual entity files that are symlinks — and specifically ones
+    NOT listed in package.yaml, so the manifest-path containment check
+    (which only inspects listed paths) can't see them by construction.
+    Historical/superseded version files are legitimately unmanifested by
+    design (D-009), which is exactly why this needed an unconditional
+    discovery-level check rather than extending the manifest check."""
+
+    def test_find_entity_files_skips_symlinked_file(self):
+        import boe_files
+        pkg = FIXTURES / "invalid" / "unmanifested-symlink"
+        symlink = pkg / "claim-unlisted-symlink.yaml"
+        assert symlink.is_symlink(), "Fixture must be a tracked symlink"
+        files = boe_files.find_entity_files([pkg])
+        assert symlink not in files, (
+            f"find_entity_files must not read a symlinked entity file, got: {files}"
+        )
+
+    def test_find_symlinked_entity_paths_reports_it(self):
+        import boe_files
+        pkg = FIXTURES / "invalid" / "unmanifested-symlink"
+        symlink = pkg / "claim-unlisted-symlink.yaml"
+        assert boe_files.find_symlinked_entity_paths([pkg]) == [symlink]
+
+    def test_broken_symlink_does_not_crash_discovery(self):
+        """The specific defect the reviewer demonstrated: a dangling
+        unmanifested symlink must not raise FileNotFoundError."""
+        import boe_files
+        pkg = FIXTURES / "invalid" / "broken-unmanifested-symlink"
+        broken = pkg / "claim-broken-symlink.yaml"
+        assert broken.is_symlink() and not broken.exists(), "Fixture symlink must be dangling"
+        # Must not raise:
+        files = boe_files.find_entity_files([pkg])
+        assert broken not in files
+        assert boe_files.find_symlinked_entity_paths([pkg]) == [broken]
+
+    def test_load_yaml_reports_broken_symlink_as_diagnostic_not_crash(self):
+        """Backstop test for load_yaml itself (independent of discovery
+        skipping it first) — any future call site that hands load_yaml a
+        dangling path must get an error tuple, never an exception."""
+        import boe_files
+        broken = FIXTURES / "invalid" / "broken-unmanifested-symlink" / "claim-broken-symlink.yaml"
+        data, error = boe_files.load_yaml(broken)
+        assert data is None
+        assert error is not None and "could not read file" in error.lower()
 
 
 class TestCliMultiPackageDiscovery:
@@ -416,3 +626,32 @@ class TestCliMultiPackageDiscovery:
         assert "symlink" in result.stdout.lower(), (
             f"Expected a symlink diagnostic in CLI output, got:\n{result.stdout}"
         )
+
+    def test_cli_rejects_nonexistent_root_with_diagnostic_not_traceback(self, tmp_path):
+        """M-18 (sixth-pass review): a nonexistent --root previously reached
+        iterdir() unguarded and crashed with an uncaught FileNotFoundError."""
+        result = self._run_cli(tmp_path / "does-not-exist")
+        assert result.returncode != 0
+        assert "Traceback" not in result.stderr, f"CLI crashed instead of reporting a diagnostic:\n{result.stderr}"
+        assert "does not exist" in result.stdout
+
+    def test_cli_rejects_root_that_is_a_file(self, tmp_path):
+        """M-18: --root must be a directory, not just exist."""
+        not_a_dir = tmp_path / "just-a-file"
+        not_a_dir.write_text("not a directory")
+        result = self._run_cli(not_a_dir)
+        assert result.returncode != 0
+        assert "Traceback" not in result.stderr, f"CLI crashed instead of reporting a diagnostic:\n{result.stderr}"
+        assert "not a directory" in result.stdout
+
+    def test_cli_rejects_symlinked_root(self, tmp_path):
+        """M-18: --root itself must not be a symlink, consistent with the
+        symlinked-package-root policy applied one level down."""
+        real_target = tmp_path / "_outside"
+        real_target.mkdir()
+        alias = tmp_path / "alias-root"
+        alias.symlink_to(real_target, target_is_directory=True)
+        result = self._run_cli(alias)
+        assert result.returncode != 0
+        assert "Traceback" not in result.stderr, f"CLI crashed instead of reporting a diagnostic:\n{result.stderr}"
+        assert "symlink" in result.stdout.lower()

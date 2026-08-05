@@ -11,37 +11,101 @@ are meant to be self-contained. By default, EVERY reference below must
 resolve to an entity owned by the referencing entity's own package —
 cross-package references are rejected, not just tolerated with a warning.
 There is deliberately no way yet to declare "package A depends on package
-B" — that is future work (see DECISIONS.md D-019); until it exists, any
-reference that crosses a package boundary is a defect, whether accidental
-(a copy-pasted id) or adversarial (a package claiming another package's
-entities as its own).
+B" — that is future work (see DECISIONS.md D-019/D-020); until it exists,
+any reference that crosses a package boundary is a defect, whether
+accidental (a copy-pasted id) or adversarial (a package claiming another
+package's entities as its own).
 
-Reference map (single-direction — backlinks are derived, never stored):
-- claim_evidence_link.claim_id      → claim
-- claim_evidence_link.evidence_id   → evidence
-- evidence.source_id                → source
-- claim.investigation_id            → investigation
-- assessment.claim_id               → claim
-- assessment.link_ids[]             → claim_evidence_link
-- finding.claim_ids[]               → claim
-- finding.investigation_id          → investigation
-- timeline.event_ids[]              → event
-- timeline.investigation_id         → investigation
-- revision.entity_id                → any
-- review.subject_id                 → any
-- relationship.from_id / to_id      → any (type checked against from_type/to_type)
-- relationship.claim_id             → claim
-- person.organisations[]            → organisation
-- event.{claim,source,person,organisation}_ids[] → respective types
-- package manifest entities[]       → path exists, id and version_id match the file
+REFERENCE_FIELDS below is the single declarative source of truth for every
+schema-defined reference field (sixth-pass review H-18) — it drives both
+validate_references_in_file AND tests/test_validation.py's schema
+completeness check, so a new reference field added to a schema without a
+matching registry entry fails a test instead of silently validating
+nothing.
 """
 
 from pathlib import Path
 from typing import Tuple, List
 
-from boe_files import Diagnostic, iter_entities, find_manifest, load_yaml
+from boe_files import Diagnostic, iter_entities, find_manifest, find_symlinked_entity_paths, load_yaml
 
 VALIDATOR = "references"
+
+# entity_type -> [(field, is_list, want_type_or_None), ...]
+# want_type is None for polymorphic references ("any" type) that are either
+# unconstrained (revision.entity_id) or type-checked separately against a
+# sibling discriminator field (relationship.from_id/to_id vs from_type/
+# to_type; review.subject_id vs subject_type — see the special cases in
+# validate_references_in_file).
+REFERENCE_FIELDS: dict[str, list[tuple[str, bool, str | None]]] = {
+    "claim_evidence_link": [
+        ("claim_id", False, "claim"),
+        ("evidence_id", False, "evidence"),
+    ],
+    "evidence": [
+        ("source_id", False, "source"),
+    ],
+    "claim": [
+        ("investigation_id", False, "investigation"),
+    ],
+    "assessment": [
+        ("claim_id", False, "claim"),
+        ("link_ids", True, "claim_evidence_link"),
+    ],
+    "finding": [
+        ("investigation_id", False, "investigation"),
+        ("claim_ids", True, "claim"),
+    ],
+    "timeline": [
+        ("investigation_id", False, "investigation"),
+        ("event_ids", True, "event"),
+    ],
+    "revision": [
+        ("entity_id", False, None),
+        ("triggered_by_review_id", False, "review"),
+    ],
+    "review": [
+        ("subject_id", False, None),
+        ("resolved_by_revision_id", False, "revision"),
+        ("counter_evidence_ids", True, "evidence"),
+    ],
+    "relationship": [
+        ("from_id", False, None),
+        ("to_id", False, None),
+        ("claim_id", False, "claim"),
+        ("source_ids", True, "source"),
+        ("investigation_ids", True, "investigation"),
+    ],
+    "person": [
+        ("organisations", True, "organisation"),
+        ("investigation_ids", True, "investigation"),
+    ],
+    "organisation": [
+        ("parent_organisation_id", False, "organisation"),
+        ("investigation_ids", True, "investigation"),
+    ],
+    "event": [
+        ("claim_ids", True, "claim"),
+        ("source_ids", True, "source"),
+        ("person_ids", True, "person"),
+        ("organisation_ids", True, "organisation"),
+        ("investigation_ids", True, "investigation"),
+    ],
+    "source": [
+        ("related_source_ids", True, "source"),
+    ],
+    "investigation": [
+        ("related_investigations", True, "investigation"),
+    ],
+}
+
+# Reference fields nested inside an array-of-objects property, not
+# expressible as a flat (field, is_list, want_type) tuple. Path uses the
+# same '[]' convention as the schema-completeness scanner in
+# tests/test_validation.py so the two can be compared directly.
+NESTED_REFERENCE_FIELDS: dict[str, list[str]] = {
+    "review": ["specific_concerns[].referenced_entity_id"],
+}
 
 
 def _err(code: str, path, message: str, location: str = "") -> Diagnostic:
@@ -59,21 +123,24 @@ def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
     """
     Check one reference. `field` is the location (JSON-pointer-ish, e.g.
     'claim_id' or 'link_ids[2]') — carried on every diagnostic so tests and
-    tools can distinguish which occurrence failed, not just that some
-    reference in this file failed (fifth-pass review M-07b).
+    tools can distinguish which occurrence failed (fifth-pass review M-07b).
 
-    Package scoping (H-02c): if the referencing entity's package
-    (`entity_package`) and the target's package are both known and differ,
-    that is a defect regardless of whether the target exists and has the
-    right type — self-contained packages are the model, and there is no
-    dependency-declaration mechanism yet to make a cross-package reference
-    intentional.
+    `id_index[ref_id]` is a LIST of every entity file declaring that stable
+    id — a stable id can legitimately appear in more than one file (D-009
+    intra-package version history) and, before an explicit dependency
+    mechanism exists, can also collide across packages. Resolving to
+    whichever entry happened to be indexed last (sixth-pass review H-17)
+    produced false positives: a reference resolvable LOCALLY, within the
+    referencing entity's own package, was reported as cross-package simply
+    because some other package's entry was indexed later. This prefers a
+    same-package match when one exists, and only reports REF_WRONG_PACKAGE
+    when NO same-package entry exists at all.
     """
     if not ref_id:
         return
     ctx = f"{path}[{field}]"
-    entry = id_index.get(ref_id)
-    if entry is None:
+    entries = id_index.get(ref_id)
+    if not entries:
         errors.append(_err("REF_NOT_FOUND", path, f"{ctx}: Referenced ID '{ref_id}' not found", field))
         return
     if want_type and expected_type(ref_id) != want_type:
@@ -81,16 +148,18 @@ def check_ref(ref_id, id_index: dict, path, field: str, errors: list,
             "REF_TYPE_MISMATCH", path,
             f"{ctx}: Expected a {want_type} reference but got '{ref_id}'", field
         ))
-    target_package = entry["package"]
-    if entity_package is not None and target_package is not None and target_package != entity_package:
-        errors.append(_err(
-            "REF_WRONG_PACKAGE", path,
-            f"{ctx}: Referenced ID '{ref_id}' belongs to package "
-            f"'{target_package}', not this entity's own package "
-            f"'{entity_package}' — cross-package references require an "
-            f"explicit dependency declaration (not yet supported)",
-            field,
-        ))
+    same_package = [e for e in entries if entity_package is not None and e["package"] == entity_package]
+    if entity_package is not None and not same_package:
+        other = entries[0]
+        if other["package"] is not None:
+            errors.append(_err(
+                "REF_WRONG_PACKAGE", path,
+                f"{ctx}: Referenced ID '{ref_id}' belongs to package "
+                f"'{other['package']}', not this entity's own package "
+                f"'{entity_package}' — cross-package references require an "
+                f"explicit dependency declaration (not yet supported)",
+                field,
+            ))
 
 
 def check_ref_list(ref_ids, id_index, path, field: str, errors,
@@ -111,41 +180,13 @@ def validate_references_in_file(
     def ref_list(field, ref_ids, want_type=None):
         check_ref_list(ref_ids, id_index, yaml_file, field, errors, want_type, entity_package)
 
-    if t == "claim_evidence_link":
-        ref("claim_id", data.get("claim_id"), "claim")
-        ref("evidence_id", data.get("evidence_id"), "evidence")
+    for field, is_list, want_type in REFERENCE_FIELDS.get(t, []):
+        (ref_list if is_list else ref)(field, data.get(field), want_type)
 
-    elif t == "evidence":
-        ref("source_id", data.get("source_id"), "source")
-
-    elif t == "claim":
-        ref("investigation_id", data.get("investigation_id"), "investigation")
-
-    elif t == "assessment":
-        ref("claim_id", data.get("claim_id"), "claim")
-        ref_list("link_ids", data.get("link_ids"), "claim_evidence_link")
-
-    elif t == "finding":
-        ref("investigation_id", data.get("investigation_id"), "investigation")
-        ref_list("claim_ids", data.get("claim_ids"), "claim")
-
-    elif t == "timeline":
-        ref("investigation_id", data.get("investigation_id"), "investigation")
-        ref_list("event_ids", data.get("event_ids"), "event")
-
-    elif t == "revision":
-        ref("entity_id", data.get("entity_id"))
-        ref("triggered_by_review_id", data.get("triggered_by_review_id"), "review")
-
-    elif t == "review":
-        ref("subject_id", data.get("subject_id"))
-        ref("resolved_by_revision_id", data.get("resolved_by_revision_id"), "revision")
-        ref_list("counter_evidence_ids", data.get("counter_evidence_ids"), "evidence")
-
-    elif t == "relationship":
+    # Polymorphic / nested cases not expressible as a flat registry entry:
+    if t == "relationship":
         for end, type_field in (("from_id", "from_type"), ("to_id", "to_type")):
             ref_id = data.get(end)
-            ref(end, ref_id)
             declared = data.get(type_field)
             if ref_id and declared and expected_type(ref_id) != declared:
                 errors.append(_err(
@@ -154,23 +195,20 @@ def validate_references_in_file(
                     f"but {type_field} declares '{declared}'",
                     end,
                 ))
-        ref("claim_id", data.get("claim_id"), "claim")
-        ref_list("source_ids", data.get("source_ids"), "source")
 
-    elif t == "person":
-        ref_list("organisations", data.get("organisations"), "organisation")
-
-    elif t == "organisation":
-        ref("parent_organisation_id", data.get("parent_organisation_id"), "organisation")
-
-    elif t == "event":
-        ref_list("claim_ids", data.get("claim_ids"), "claim")
-        ref_list("source_ids", data.get("source_ids"), "source")
-        ref_list("person_ids", data.get("person_ids"), "person")
-        ref_list("organisation_ids", data.get("organisation_ids"), "organisation")
-
-    elif t == "source":
-        ref_list("related_source_ids", data.get("related_source_ids"), "source")
+    if t == "review":
+        subject_id, subject_type = data.get("subject_id"), data.get("subject_type")
+        if subject_id and subject_type and expected_type(subject_id) != subject_type:
+            errors.append(_err(
+                "REF_DECLARED_TYPE_MISMATCH", yaml_file,
+                f"{yaml_file}[subject_id]: ID '{subject_id}' is a "
+                f"{expected_type(subject_id)} but subject_type declares "
+                f"'{subject_type}'",
+                "subject_id",
+            ))
+        for idx, concern in enumerate(data.get("specific_concerns") or []):
+            ref_id = concern.get("referenced_entity_id") if isinstance(concern, dict) else None
+            ref(f"specific_concerns[{idx}].referenced_entity_id", ref_id)
 
     return errors
 
@@ -189,11 +227,12 @@ def _path_is_contained(path_str: str) -> bool:
 
 def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str] | None:
     """
-    Two independent checks, both enforced (fourth-pass review M-11):
+    Two independent checks, both enforced (fourth-pass review M-11), for
+    MANIFEST-LISTED paths specifically (unmanifested-file symlinks are
+    caught separately — see find_symlinked_entity_paths and H-19 below):
 
     1. No path component between the package root and the entity file may
-       itself be a symlink — not just the entity file, but every parent
-       directory in between.
+       itself be a symlink.
     2. Resolved containment: the target — after following any symlinks that
        do exist — must still live under the package root.
 
@@ -206,7 +245,6 @@ def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str
     root = inv_path.resolve()
     entity_file = inv_path / path_str
 
-    # Rule 1: no symlink anywhere from the package root down to the file.
     walked = inv_path
     for part in Path(path_str).parts:
         walked = walked / part
@@ -218,8 +256,6 @@ def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str
                 f"escape the package after lexical checks pass)"
             )
 
-    # Rule 2: even without a tracked symlink, the resolved target must stay
-    # under the package root.
     try:
         resolved = entity_file.resolve()
         if not resolved.is_relative_to(root):
@@ -378,18 +414,8 @@ def validate_revision_transition(
 ) -> list[Diagnostic]:
     """
     A Revision connects two versions OF THE SAME ENTITY, OWNED BY THE SAME
-    PACKAGE. Endpoint existence alone is not enough — a revision whose
-    endpoints belong to unrelated entities is syntactically valid and
-    semantically meaningless (third-pass finding); a revision whose
-    endpoints belong to a DIFFERENT package is likewise meaningless
-    (fourth-pass finding H-02b).
-
-    Each endpoint is checked independently and its diagnostics carry
-    `location=field` (old_version_id / new_version_id) so a caller can
-    tell "one endpoint is wrong" from "both endpoints are wrong" — the
-    fifth-pass review demonstrated that a (validator, code) set alone
-    collapses those two very different situations into one entry
-    (finding M-07b).
+    PACKAGE. version_ids are globally unique by invariant #8, so — unlike
+    id_index — version_index does not need multimap treatment.
 
     Checks:
     - old/new version_ids correspond to existing version files
@@ -398,7 +424,6 @@ def validate_revision_transition(
     - both endpoint files carry the Revision's entity_type
     - both endpoint files are owned by the package containing this Revision
     - the OLD version is not listed as current in the package manifest
-      (a "superseded" version that is still current is a contradiction)
     Note: the NEW version is deliberately not required to be current —
     revision chains (v1→v2, v2→v3) keep intermediate revisions valid.
     """
@@ -407,7 +432,6 @@ def validate_revision_transition(
     entity_id = data.get("entity_id")
     entity_type = data.get("entity_type")
 
-    endpoints = {}
     for field in ("old_version_id", "new_version_id"):
         vid = data.get(field)
         if not vid:
@@ -420,7 +444,6 @@ def validate_revision_transition(
                 f"any entity version file", field
             ))
             continue
-        endpoints[field] = info
         if entity_id and info["id"] != entity_id:
             errors.append(_err(
                 "REVISION_ENTITY_MISMATCH", yaml_file,
@@ -479,10 +502,7 @@ def run_reference_validation(
     all_errors = []
 
     # A symlinked package root is rejected outright, before any file
-    # discovery — the resolved root would traverse to arbitrary content
-    # outside the checkout entirely (fifth-pass review H-15). boe_files
-    # already refuses to descend into such a root for every validator;
-    # this is what actually reports the defect.
+    # discovery (fifth-pass review H-15).
     real_investigation_paths = []
     for inv_path in investigation_paths:
         if inv_path.is_symlink():
@@ -495,18 +515,33 @@ def run_reference_validation(
             continue
         real_investigation_paths.append(inv_path)
 
-    # Pass 1: index all defined IDs and versions. Both indexes carry
-    # package identity — a lossy version_id -> path map cannot support
-    # revision transition validation (third-pass review finding), and
-    # without package identity a reference or transition can silently
-    # cross package boundaries (fourth-pass H-02b, fifth-pass H-02c).
-    id_index = {}
+    # A symlinked entity file OR manifest is likewise rejected outright,
+    # even when it isn't listed in package.yaml — historical/superseded
+    # version files are legitimately unmanifested by design (D-009), so
+    # the manifest-path containment check alone cannot see them
+    # (sixth-pass review H-19). boe_files already refuses to read these;
+    # this reports the precise cause instead of the package silently
+    # appearing to have fewer files than it does.
+    for symlinked in find_symlinked_entity_paths(real_investigation_paths):
+        all_errors.append(_err(
+            "ENTITY_FILE_SYMLINK", symlinked,
+            f"{symlinked}: entity file is a symlink — symlinked entity "
+            f"files are prohibited everywhere in a package, including "
+            f"unmanifested historical versions (they can read content "
+            f"from outside the package, or crash validation if broken)"
+        ))
+
+    # Pass 1: index all defined IDs and versions. id_index is a MULTIMAP —
+    # a stable id can legitimately appear in more than one file (D-009
+    # intra-package version history), so collapsing it to one entry loses
+    # information a reference check needs (sixth-pass review H-17).
+    id_index: dict[str, list[dict]] = {}
     version_index = {}
     entities = list(iter_entities(real_investigation_paths))
     for path, data in entities:
         package = _owning_package(path, real_investigation_paths)
         if "id" in data:
-            id_index[data["id"]] = {"path": path, "package": package}
+            id_index.setdefault(data["id"], []).append({"path": path, "package": package})
         if "version_id" in data:
             version_index[data["version_id"]] = {
                 "path": path,
@@ -518,7 +553,9 @@ def run_reference_validation(
     if verbose:
         print(f"    Indexed {len(id_index)} entity IDs, {len(version_index)} versions")
 
-    # Pass 2: cross-entity references, package-scoped by default (H-02c)
+    # Pass 2: cross-entity references, package-scoped by default (H-02c),
+    # covering every schema-declared reference field (H-18 — see
+    # REFERENCE_FIELDS at module scope).
     for path, data in entities:
         entity_package = _owning_package(path, real_investigation_paths)
         all_errors.extend(validate_references_in_file(path, data, id_index, entity_package))

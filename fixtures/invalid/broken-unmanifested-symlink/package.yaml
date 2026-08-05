@@ -1,0 +1,15 @@
+# INVALID FIXTURE — claim-broken-symlink.yaml is a real tracked symlink
+# whose target does not exist, deliberately NOT listed here. Proves a
+# dangling unmanifested symlink is rejected with a diagnostic, not an
+# uncaught FileNotFoundError crashing the whole validation run
+# (sixth-pass review H-19).
+manifest_version: "1"
+investigation_id: "boe:investigation:01JF0000000000000000000903"
+slug: "broken-unmanifested-symlink"
+release_version: "0.1.0"
+schema_version: "0.2.0"
+methodology_version: "0.2.0"
+entities:
+  - id: "boe:investigation:01JF0000000000000000000903"
+    version_id: "01JFV000000000000000000903"
+    path: "investigation.yaml"
