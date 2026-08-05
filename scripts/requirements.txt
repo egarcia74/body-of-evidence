@@ -17,4 +17,4 @@ python-ulid==2.7.0
 
 # Test runner (used by CI)
 # 9.0.3 fixes GHSA-6w46-j5rx-g56g (tmpdir/tmp_path symlink-attack advisory)
-pytest==9.0.3
+pytest==9.1.1
