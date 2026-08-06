@@ -16,7 +16,10 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 - `validate_paths` fails closed on an empty run (no paths, or an empty check selection) unless `allow_empty=True` — the supported API must not answer "passed" for validating nothing (invariant 10)
 - `load_yaml` now reads bytes and delegates to `parse_yaml_bytes` rather than `open(path)`, whose default encoding is locale-dependent — the two could otherwise decode the same file differently
 - Document content is read with `O_NOFOLLOW`, so a path swapped for a symlink after discovery enumerated it is refused rather than followed outside the package — hardening that narrows the read-side window, explicitly NOT a TOCTOU fix (which remains D-016's)
-- 121 tests (was 95)
+- New `fixtures/invalid/manifest-path-not-an-entity` (fifteenth invalid fixture) pins `MANIFEST_PATH_NOT_AN_ENTITY` in the self-test, not only in a tmp_path test
+- `ValidationContext.for_paths` deduplicates repeated roots, so `validate_paths([pkg, pkg], ...)` returns a structured result instead of raising `ValueError` out of the supported API; the constructor's duplicate-root check remains for direct construction
+- `validate_paths`' empty-run error is a structured `Diagnostic` (`EMPTY_RUN`), not a bare string — every other entry in `results` carries Diagnostics
+- 124 tests (was 95)
 
 ### Changed — response to eleventh-pass review (2026-08-06, D-026)
 

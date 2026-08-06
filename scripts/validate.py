@@ -32,7 +32,7 @@ SCRIPTS_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPTS_DIR.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from boe_files import ValidationContext
+from boe_files import Diagnostic, ValidationContext
 from validate_schema import run_schema_validation
 from validate_ids import run_id_validation
 from validate_references import run_reference_validation
@@ -107,7 +107,12 @@ def validate_paths(paths: list[Path], schema_dir: Path, verbose: bool = False,
             f"Refusing to report success: {reason}. Validating nothing is "
             f"not a result — pass allow_empty=True if that is intentional."
         )
-        return False, {"_": {"passed": False, "errors": [message]}}
+        # A Diagnostic, not a bare string: every other entry in `results`
+        # carries structured errors, and a consumer reading e.code/e.path
+        # would break on this one alone.
+        return False, {"_": {"passed": False, "errors": [
+            Diagnostic("EMPTY_RUN", "validate", "<none>", message)
+        ]}}
     return run_all_checks(paths, schema_dir, verbose, selected)
 
 

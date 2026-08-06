@@ -23,7 +23,7 @@ import yaml
 REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from boe_files import ValidationContext
+from boe_files import Diagnostic, ValidationContext
 from validate_ids import run_id_validation, validate_id_format, validate_ulid
 from validate_orphans import run_orphan_validation
 from validate_provenance import run_provenance_validation
@@ -243,6 +243,16 @@ class TestInvalidFixtures:
             ("revision-unrelated-endpoints", [
                 ("references", "REVISION_ENTITY_MISMATCH",
                  "fixtures/invalid/revision-unrelated-endpoints/revision-broken.yaml", "old_version_id"),
+            ]),
+            # A manifest entry whose path exists and matches the schema's
+            # .ya?ml$ pattern, but which discovery does not treat as an
+            # entity document. Reading such a path used to be attempted
+            # directly, so a failure silently skipped the entry's id/
+            # version_id checks — fail-open (D-027, CodeRabbit follow-up on
+            # PR #16 asked for a committed fixture, not only a tmp_path test).
+            ("manifest-path-not-an-entity", [
+                ("references", "MANIFEST_PATH_NOT_AN_ENTITY",
+                 "fixtures/invalid/manifest-path-not-an-entity/package.yaml", "package.yaml"),
             ]),
             ("manifest-no-investigation", [
                 ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-no-investigation/package.yaml", ""),
@@ -1581,6 +1591,32 @@ class TestValidationContextIsSelfConsistent:
             schema_dir=SCHEMA_DIR, verbose=False,
         )
         assert not passed and errors
+
+    def test_supported_api_tolerates_a_repeated_root(self):
+        """CodeRabbit on PR #16: `__post_init__` rejects duplicate roots, but
+        `for_paths` passed the caller's list straight through — so
+        `validate_paths([pkg, pkg], ...)` raised ValueError OUT of the
+        supported entry point instead of returning a structured result. A
+        `--root` scan yielding the same directory twice would do the same.
+        The factory now deduplicates; the constructor check remains for
+        direct construction."""
+        import validate as v
+
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        passed, results = v.validate_paths([pkg, pkg], SCHEMA_DIR)
+        assert passed, results
+        assert ValidationContext.for_paths([pkg, pkg]).roots == (pkg,)
+
+    def test_empty_run_error_is_a_structured_diagnostic(self):
+        """CodeRabbit on PR #16: every other entry in `results` carries
+        Diagnostic objects, so a consumer reading `e.code`/`e.validator`
+        would break on this one alone if it stayed a bare string."""
+        import validate as v
+
+        _, results = v.validate_paths([], SCHEMA_DIR)
+        errors = results["_"]["errors"]
+        assert errors and all(isinstance(e, Diagnostic) for e in errors), errors
+        assert errors[0].code == "EMPTY_RUN" and errors[0].validator == "validate"
 
     def test_context_rejects_duplicate_roots(self):
         """A root listed twice would validate the package twice and report

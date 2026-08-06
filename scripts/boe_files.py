@@ -335,7 +335,13 @@ class ValidationContext:
         re-walks and re-reads every package once per validator, which is
         both wasted I/O and the divergence DiscoveredDocument exists to
         prevent."""
-        return cls(discoveries=tuple(discover_package(p) for p in investigation_paths))
+        # Deduplicate, order-preserving: validating one root twice is
+        # meaningless, and letting it reach __post_init__'s duplicate-root
+        # check would raise ValueError out of validate.validate_paths — the
+        # supported API must return a structured result, not an exception.
+        # __post_init__ keeps that check for direct construction.
+        unique = list(dict.fromkeys(investigation_paths))
+        return cls(discoveries=tuple(discover_package(p) for p in unique))
 
     @property
     def roots(self) -> tuple[Path, ...]:
