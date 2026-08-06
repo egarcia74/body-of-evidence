@@ -16,7 +16,7 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 - `validate_paths` fails closed on an empty run (no paths, or an empty check selection) unless `allow_empty=True` — the supported API must not answer "passed" for validating nothing (invariant 10)
 - `load_yaml` now reads bytes and delegates to `parse_yaml_bytes` rather than `open(path)`, whose default encoding is locale-dependent — the two could otherwise decode the same file differently
 - Document content is read with `O_NOFOLLOW`, so a path swapped for a symlink after discovery enumerated it is refused rather than followed outside the package — hardening that narrows the read-side window, explicitly NOT a TOCTOU fix (which remains D-016's)
-- 116 tests (was 95)
+- 121 tests (was 95)
 
 ### Changed — response to eleventh-pass review (2026-08-06, D-026)
 

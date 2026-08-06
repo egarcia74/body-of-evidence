@@ -12,7 +12,7 @@ import os
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Iterator
+from collections.abc import Iterator
 
 import yaml
 
@@ -605,6 +605,10 @@ def _parse_yaml(source: str, path: Path) -> tuple[dict | None, str | None]:
     """The single YAML parsing implementation. Returns a NEW object graph
     on every call — never a cached or shared one."""
     try:
+        # nosec B506 -- NOT unsafe_load: _strict_loader() returns a subclass
+        # of yaml.SafeLoader (verified by test_strict_loader_is_a_safe_loader),
+        # so arbitrary-object tags are rejected. A custom Loader is required
+        # here to reject duplicate keys, which yaml.safe_load cannot do.
         data = yaml.load(source, Loader=_strict_loader())
     except yaml.YAMLError as e:
         return None, f"{path}: YAML error: {e}"

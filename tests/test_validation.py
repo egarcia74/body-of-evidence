@@ -24,11 +24,11 @@ REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from boe_files import ValidationContext
-from validate_schema import run_schema_validation
 from validate_ids import run_id_validation, validate_id_format, validate_ulid
-from validate_references import run_reference_validation
 from validate_orphans import run_orphan_validation
 from validate_provenance import run_provenance_validation
+from validate_references import run_reference_validation
+from validate_schema import run_schema_validation
 
 SCHEMA_DIR = REPO_ROOT / "schema"
 FIXTURES = REPO_ROOT / "fixtures"
@@ -1397,8 +1397,6 @@ class TestSharedDiscoveryAcrossChecks:
         # Scoped to the PACKAGE tree: schema/*.json are legitimately read by
         # the schema validator and are not package documents. Every route to
         # file content is guarded, not just the one discovery happens to use.
-        import boe_files as bf
-
         def _guard(real):
             def wrapper(target, *a, **k):
                 # os.open also accepts an int fd or bytes; only a real path
@@ -1413,7 +1411,8 @@ class TestSharedDiscoveryAcrossChecks:
                 return real(target, *a, **k)
             return wrapper
 
-        monkeypatch.setattr(bf, "_read_bytes_nofollow", _guard(bf._read_bytes_nofollow))
+        monkeypatch.setattr(boe_files, "_read_bytes_nofollow",
+                            _guard(boe_files._read_bytes_nofollow))
         monkeypatch.setattr(Path, "read_bytes", _guard(Path.read_bytes))
         monkeypatch.setattr("builtins.open", _guard(open))
         monkeypatch.setattr(os, "open", _guard(os.open))
@@ -1601,6 +1600,46 @@ class TestValidationContextIsSelfConsistent:
             ValidationContext(discoveries=[boe_files.discover_package(self.INVALID_PKG)])
 
 
+class TestYamlLoadingIsSafe:
+    """`boe_files._parse_yaml` calls `yaml.load(..., Loader=_strict_loader())`
+    rather than `yaml.safe_load`, because a custom Loader is the only way to
+    reject duplicate keys — which safe_load cannot do, and which this project
+    treats as a data-integrity hazard in hand-authored evidence files.
+
+    Static analysis flags any `yaml.load` as unsafe (Bandit B506). The
+    suppression in boe_files.py points at THIS class, so the claim it makes is
+    checked rather than asserted in a comment."""
+
+    def test_strict_loader_is_a_safe_loader(self):
+        import boe_files
+        import yaml
+
+        assert issubclass(boe_files._strict_loader(), yaml.SafeLoader)
+
+    @pytest.mark.parametrize("payload", [
+        b'!!python/object/apply:os.system ["echo pwned"]',
+        b'!!python/object/new:os.system ["echo pwned"]',
+        b'!!python/name:os.system',
+    ])
+    def test_arbitrary_object_tags_are_rejected(self, payload):
+        """The behaviour B506 exists to prevent, asserted directly."""
+        import boe_files
+
+        data, error = boe_files.parse_yaml_bytes(payload, Path("probe.yaml"))
+        assert data is None
+        assert error is not None and "yaml error" in error.lower()
+
+    def test_duplicate_keys_are_rejected(self):
+        """...and the reason a plain safe_load will not do."""
+        import boe_files
+
+        data, error = boe_files.parse_yaml_bytes(
+            b"type: claim\ntype: evidence\n", Path("probe.yaml")
+        )
+        assert data is None
+        assert error is not None and "duplicate key" in error.lower()
+
+
 class TestValidatorsCannotCorruptEachOther:
     """H-24 (post-eleventh-pass feedback). D-026 gave every validator a SHARED
     parsed `dict` and claimed they "necessarily inspect the same bytes". The
@@ -1714,6 +1753,9 @@ class TestSupportedCliEntryPoints:
         LOUDLY rather than being deleted outright: simply removing the
         `__main__` block left these commands exiting 0 in silence, which is
         worse than the crash M-31 reported, not better."""
+        # nosemgrep: dangerous-subprocess-use-audit -- argv is fully static:
+        # this interpreter plus a repo-relative path from the parametrize list
+        # above. No user or file input reaches it.
         r = subprocess.run(
             [sys.executable, str(REPO_ROOT / "scripts" / f"{module}.py")],
             capture_output=True, text=True, cwd=REPO_ROOT, check=False,
