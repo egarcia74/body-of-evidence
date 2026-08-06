@@ -30,7 +30,24 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Run unit tests
-        run: python -m pytest tests/ -v
+        # COVERAGE_PROCESS_START + PYTHONPATH enable subprocess coverage
+        # (see .coveragerc and .github/coverage-subprocess/sitecustomize.py)
+        # so the CLI-level tests, which spawn `python scripts/validate.py`
+        # as a fresh interpreter, are actually measured — without this,
+        # validate.py reports 0% despite having dedicated CLI tests.
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+          PYTHONPATH: ${{ github.workspace }}/.github/coverage-subprocess
+        run: python -m pytest tests/ -v --cov=scripts --cov-report=xml --cov-report=term-missing
+
+      # A silently-missing or empty coverage.xml would let SonarCloud's
+      # (separate workflow) scan carry on as if coverage ran when it
+      # didn't — make report generation an explicit, checked contract
+      # instead of an assumption. A plain existence/size check, not an XML
+      # parse: this file is our own CI-generated output, not untrusted
+      # input, so there's no reason to add parser attack surface for it.
+      - name: Verify coverage report was generated
+        run: test -s coverage.xml
 
       - name: Validator self-test (valid fixtures must pass, invalid must fail)
         run: python scripts/validate.py --self-test --allow-empty

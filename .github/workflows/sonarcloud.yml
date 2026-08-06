@@ -29,6 +29,35 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Coverage must be generated in this job (not validate-schema.yml,
+      # a separate workflow run) so coverage.xml exists on disk when the
+      # scan step below reads sonar.python.coverage.reportPaths.
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run unit tests with coverage
+        # See validate-schema.yml for why COVERAGE_PROCESS_START/PYTHONPATH
+        # are needed to measure the CLI-level subprocess tests.
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+          PYTHONPATH: ${{ github.workspace }}/.github/coverage-subprocess
+        run: python -m pytest tests/ -v --cov=scripts --cov-report=xml --cov-report=term-missing
+
+      # A silently-missing or empty coverage.xml would let the scan below
+      # run against no coverage input without anyone noticing — make
+      # report generation an explicit, checked contract instead of an
+      # assumption. Plain existence/size check, not an XML parse: this
+      # file is our own CI-generated output, not untrusted input.
+      - name: Verify coverage report was generated
+        run: test -s coverage.xml
+
       # Informational only during pre-alpha baselining: the scan reports to
       # SonarQube Cloud without failing CI on the quality gate. To promote
       # the gate to a hard check once the baseline is clean, set

@@ -1,0 +1,26 @@
+; Coverage.py configuration — see DECISIONS.md D-024.
+;
+; `parallel = true` is required so pytest-cov can combine coverage data
+; from the subprocesses tests/test_validation.py::TestCLIRealDiscovery
+; spawns (`subprocess.run([sys.executable, "scripts/validate.py", ...])`)
+; with the coverage collected in the main pytest process. Without it,
+; scripts/validate.py — the CLI entry point, exercised by ~10 CLI-level
+; integration tests — reports 0% coverage, because coverage.py does not
+; measure code executed in a separate interpreter process by default.
+; Subprocess measurement itself is enabled by CI setting the
+; COVERAGE_PROCESS_START env var and PYTHONPATH to
+; .github/coverage-subprocess (see the workflows); it is a no-op locally
+; unless those are also set.
+[run]
+source = scripts
+branch = true
+parallel = true
+omit =
+    */__pycache__/*
+
+[report]
+show_missing = true
+skip_empty = true
+
+[xml]
+output = coverage.xml
