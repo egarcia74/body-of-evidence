@@ -32,7 +32,7 @@ SCRIPTS_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPTS_DIR.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from boe_files import discover_packages
+from boe_files import ValidationContext
 from validate_schema import run_schema_validation
 from validate_ids import run_id_validation
 from validate_references import run_reference_validation
@@ -52,23 +52,24 @@ def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool, checks: d
     """
     Run the given checks over the given paths. Returns (all_passed, results).
 
-    Builds ONE PackageDiscovery snapshot (one filesystem walk per package
-    root) and passes it to every check, rather than letting each
-    run_*_validation call discover_packages independently — a whole-CLI-run
-    invocation (the common case: all five checks, or --self-test's per-
-    fixture pass) previously still walked every package once per validator,
-    even though each validator's OWN walk count had already been reduced to
-    one (tenth-pass review CodeRabbit follow-up to D-024/M-24: "one walk per
+    Builds ONE ValidationContext (one filesystem walk and one read of each
+    document per package root) and passes it to every check, rather than
+    letting each run_*_validation build its own — a whole-CLI-run invocation
+    (the common case: all five checks, or --self-test's per-fixture pass)
+    previously still walked every package once per validator, even though
+    each validator's OWN walk count had already been reduced to one
+    (tenth-pass review CodeRabbit follow-up to D-025/M-24: "one walk per
     package" was true per validator call, not true for a full run).
+
+    Sharing the context is also what makes all five checks inspect the same
+    bytes: the context carries parsed document content, so no validator
+    re-opens a path another validator already read (eleventh-pass M-29).
     """
-    discoveries = discover_packages(paths)
+    context = ValidationContext.for_paths(paths)
     results = {}
     all_passed = True
     for check_name, check_fn in checks.items():
-        passed, errors = check_fn(
-            investigation_paths=paths, schema_dir=schema_dir, verbose=verbose,
-            discoveries=discoveries,
-        )
+        passed, errors = check_fn(context=context, schema_dir=schema_dir, verbose=verbose)
         results[check_name] = {"passed": passed, "errors": errors}
         if not passed:
             all_passed = False

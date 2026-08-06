@@ -15,9 +15,7 @@ from pathlib import Path
 
 from boe_files import (
     Diagnostic,
-    PackageDiscovery,
-    discover_packages,
-    entities_from,
+    ValidationContext,
     preflight_diagnostics,
 )
 
@@ -79,25 +77,24 @@ def validate_source(yaml_file: Path, data: dict) -> list[Diagnostic]:
 
 
 def run_provenance_validation(
-    investigation_paths: list[Path],
+    context: ValidationContext,
     schema_dir: Path,
     verbose: bool = False,
-    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
-    """`discoveries`, if provided, is a pre-built list[PackageDiscovery] —
-    pass it when running multiple checks over the same paths (see
-    validate.py's run_all_checks) so the package tree is walked once for
-    the whole run, not once per check. Computed from investigation_paths
-    when omitted, for standalone/direct calls (e.g. tests).
+    """`context` is the single, self-consistent input to this check: it
+    owns both the package roots and the one-walk-one-read discovery of
+    each (eleventh-pass review H-23 — this used to take `investigation_paths`
+    and an optional `discoveries` list with nothing checking they described
+    the same packages, so an empty discovery could silently certify a
+    known-invalid package). Build it once per run with
+    ValidationContext.for_paths and share it across all five checks.
 
-    One walk per package root produces every preflight fact (symlinked
-    root, internal symlink, unreadable subtree) this check must fail
-    closed on, instead of certifying a package it did not completely or
+    Preflight runs first, from that same discovery, so this check fails
+    closed on a symlinked root, an internal symlink, or an unreadable
+    subtree rather than certifying a package it did not completely or
     safely inspect (eighth-pass M-22, tenth-pass M-24/M-27)."""
-    if discoveries is None:
-        discoveries = discover_packages(investigation_paths)
-    all_errors = preflight_diagnostics(discoveries, VALIDATOR)
-    for yaml_file, data in entities_from(discoveries):
+    all_errors = preflight_diagnostics(context, VALIDATOR)
+    for yaml_file, data in context.entities():
         if data.get("type") != "source":
             continue
         errors = validate_source(yaml_file, data)

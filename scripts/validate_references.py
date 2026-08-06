@@ -39,10 +39,7 @@ from pathlib import Path
 from boe_files import (
     Diagnostic,
     PackageDiscovery,
-    discover_packages,
-    entities_from,
-    find_manifest,
-    load_yaml,
+    ValidationContext,
     preflight_diagnostics,
 )
 
@@ -363,7 +360,7 @@ def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str
     return None
 
 
-def validate_manifest(inv_path: Path):
+def validate_manifest(discovery: PackageDiscovery, context: ValidationContext):
     """
     The manifest is the release authority — validate it hard:
     - it must exist (a package without a manifest has no defined current state)
@@ -381,16 +378,16 @@ def validate_manifest(inv_path: Path):
     current version_id per this manifest. current_map is used by ordinary
     reference validation (H-20) AND revision transition validation.
     """
-    manifest_path = find_manifest(inv_path)
-    if manifest_path is None:
+    inv_path = discovery.root
+    if discovery.manifest is None:
         return [_err(
             "MANIFEST_MISSING", inv_path,
             f"{inv_path}: Missing package.yaml manifest — a package without a "
             f"manifest has no defined current state (see D-012)"
         )], {}
-    data, error = load_yaml(manifest_path)
-    if error:
-        return [_err("YAML_PARSE_ERROR", manifest_path, error)], {}
+    manifest_path, data = discovery.manifest.path, discovery.manifest.data
+    if discovery.manifest.error:
+        return [_err("YAML_PARSE_ERROR", manifest_path, discovery.manifest.error)], {}
     if not data:
         return [_err("MANIFEST_EMPTY", manifest_path, f"{manifest_path}: Manifest is empty")], {}
 
@@ -458,9 +455,13 @@ def validate_manifest(inv_path: Path):
                     "MANIFEST_PATH_MISSING", manifest_path, f"{ctx}: Listed path '{path}' does not exist", path
                 ))
                 continue
-            file_data, ferr = load_yaml(entity_file)
-            if ferr or not file_data:
-                continue  # Parse errors reported by schema validation
+            listed_document = context.document_for(entity_file)
+            if listed_document is None or listed_document.error or not listed_document.data:
+                # Not discovered (e.g. excluded as a symlink, already
+                # diagnosed by preflight), unparseable, or empty. Parse
+                # errors are reported by schema validation.
+                continue
+            file_data = listed_document.data
             if eid and file_data.get("id") != eid:
                 errors.append(_err(
                     "MANIFEST_ENTRY_ID_MISMATCH", manifest_path,
@@ -594,18 +595,17 @@ def _owning_package(path: Path, investigation_paths: list[Path]) -> Path | None:
 
 
 def run_reference_validation(
-    investigation_paths: list[Path],
+    context: ValidationContext,
     schema_dir: Path,
     verbose: bool = False,
-    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
-    """`discoveries`, if provided, is a pre-built list[PackageDiscovery] —
-    pass it when running multiple checks over the same paths (see
-    validate.py's run_all_checks) so the package tree is walked once for
-    the whole run, not once per check. Computed from investigation_paths
-    when omitted, for standalone/direct calls (e.g. tests).
+    """`context` is the single, self-consistent input to this check — it
+    owns both the package roots and their one-walk-one-read discovery, so
+    roots and discovery cannot disagree (eleventh-pass review H-23). Build
+    it once per run with ValidationContext.for_paths and share it across
+    all five checks.
 
-    One walk per package root produces every preflight fact — symlinked
+    That one walk per package root produces every preflight fact — symlinked
     root, internal symlink (any file, directory, extension, manifested or
     not: sixth-pass H-19, broadened by seventh-pass M-20), and unreadable
     subtree (eighth-pass M-22) — instead of three independent walks
@@ -614,10 +614,8 @@ def run_reference_validation(
     other four standalone checks previously omitted them silently via
     find_entity_files, exactly the same vacuous-pass failure class as
     M-22/H-22). See boe_files.preflight_diagnostics."""
-    if discoveries is None:
-        discoveries = discover_packages(investigation_paths)
-    all_errors = preflight_diagnostics(discoveries, VALIDATOR)
-    real_investigation_paths = [d.root for d in discoveries if not d.root_is_symlink]
+    all_errors = preflight_diagnostics(context, VALIDATOR)
+    real_investigation_paths = list(context.real_roots)
 
     # Pass 1: index all defined IDs and versions. id_index is a MULTIMAP —
     # a stable id can legitimately appear in more than one file (D-009
@@ -625,7 +623,7 @@ def run_reference_validation(
     # information a reference check needs (sixth-pass review H-17).
     id_index: dict[str, list[dict]] = {}
     version_index = {}
-    entities = list(entities_from(discoveries))
+    entities = list(context.entities())
     for path, data in entities:
         package = _owning_package(path, real_investigation_paths)
         if "id" in data:
@@ -647,9 +645,11 @@ def run_reference_validation(
     # id exists somewhere in the package", so current_maps must exist
     # before Pass 3 runs.
     current_maps: dict[Path, dict] = {}
-    for inv_path in real_investigation_paths:
-        manifest_errors, current_map = validate_manifest(inv_path)
-        current_maps[inv_path] = current_map
+    for discovery in context.discoveries:
+        if discovery.root_is_symlink:
+            continue
+        manifest_errors, current_map = validate_manifest(discovery, context)
+        current_maps[discovery.root] = current_map
         all_errors.extend(manifest_errors)
 
     # Pass 3: cross-entity references, package-scoped (H-02c) and
@@ -683,7 +683,9 @@ if __name__ == "__main__":
         p for p in (repo_root / "investigations").iterdir()
         if p.is_dir() and not p.name.startswith("_")
     ]
-    passed, errors = run_reference_validation(inv_paths, repo_root / "schema", verbose=True)
+    passed, errors = run_reference_validation(
+        ValidationContext.for_paths(inv_paths), repo_root / "schema", verbose=True
+    )
     for e in errors:
         print(f"ERROR: {e}")
     sys.exit(0 if passed else 1)

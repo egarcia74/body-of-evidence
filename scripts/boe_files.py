@@ -8,9 +8,10 @@ validation is a validation hole.)
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
-from typing import Iterator, Tuple, Optional
+from typing import Iterator, Tuple
 
 import yaml
 
@@ -51,8 +52,11 @@ def _walk_package(inv_path: Path) -> tuple[list[Path], list[Path], list[OSError]
       symlinks -- symlink Paths, file or directory (never descended into)
       errors   -- one OSError per subdirectory os.walk could not list
 
-    Shared by find_entity_files and find_all_symlinks so both see exactly
-    the same tree and the same failures.
+    Shared by discover_package and the retained find_* primitives so all
+    of them see exactly the same tree and the same failures. This is the
+    ONE function that touches the directory tree, which is what makes
+    "each package is walked exactly once per run" a testable claim rather
+    than a convention (eleventh-pass review L-12).
 
     Without an `onerror` callback, os.walk SILENTLY skips any subdirectory
     it cannot list (e.g. permission denied) — the caller gets an empty
@@ -84,73 +88,277 @@ def _walk_package(inv_path: Path) -> tuple[list[Path], list[Path], list[OSError]
 
 
 @dataclass(frozen=True)
+class DiscoveredDocument:
+    """
+    One YAML document read exactly ONCE per validation run, together with
+    the outcome of parsing it. Every validator that needs this file's
+    content consumes THIS object rather than re-opening the path
+    (eleventh-pass review M-29).
+
+    Reading once is not merely an I/O saving. When five validators each
+    re-open the same path, they can legitimately observe five different
+    versions of the file, so "the package that passed schema validation"
+    and "the package that passed reference validation" need not be the
+    same bytes. Parsing once removes that divergence between validators.
+
+    Exactly one of `data`/`error` is meaningful: `error` is a human-readable
+    parse/IO failure message (and `data` is then None), `data` is the parsed
+    mapping (None for an empty document, which is not an error). Validators
+    that only care about well-formed entities skip anything with an `error`
+    or no `data`; `validate_schema` is the one that reports the parse error
+    itself, which is why the error is carried here rather than dropped.
+    """
+
+    path: Path
+    data: dict | None
+    error: str | None
+
+
+_WALK_TOKEN = object()
+"""Private proof-of-walk. `discover_package` is the only holder, so the only
+way to obtain a PackageDiscovery is to have actually walked the filesystem
+(eleventh-pass review H-23): a caller cannot hand a validator a fabricated
+discovery asserting that a package is empty, or that it contains something
+it does not. Staleness is deliberately NOT covered by this — a discovery
+produced by a real walk and used later is legitimately obtainable, and
+closing that gap needs content digests re-checked at publication (D-016)."""
+
+
+@dataclass(frozen=True, kw_only=True)
 class PackageDiscovery:
     """
-    Every filesystem-integrity fact about ONE package root, from exactly one
-    walk (tenth-pass review M-24: `find_entity_files`, `find_all_symlinks`,
-    and `find_traversal_errors` previously each walked the same tree
-    independently — three passes of I/O, and a time-of-check/time-of-use gap
-    between the "is this safe" pass and the "read these files" pass).
+    Every filesystem-integrity fact about ONE package root, plus the parsed
+    content of every document in it, from exactly one walk (tenth-pass
+    review M-24: `find_entity_files`, `find_all_symlinks`, and
+    `find_traversal_errors` previously each walked the same tree
+    independently — three passes of I/O over the same directories).
+
+    This is an ENUMERATION-AND-CONTENT snapshot of one package, but NOT a
+    guarantee about the filesystem: the walk and the reads are separate
+    syscalls, so a file can still change between being enumerated and being
+    read (eleventh-pass review M-29 — an earlier version of this docstring
+    claimed collapsing the walks closed the time-of-check/time-of-use gap,
+    which it did not). What it does guarantee is that every validator in a
+    run sees the SAME enumeration and the SAME bytes as each other. Closing
+    the remaining gap against the filesystem needs content digests captured
+    at read time and re-checked at publication — deliberately deferred to
+    D-016's Edition work, which has to define what a released package's
+    authoritative bytes ARE before anything can verify them.
 
     `root_is_symlink=True` means the walk never happened at all (a symlinked
-    root is rejected before descending into it — see find_entity_files); the
-    other three fields are then always empty, not merely unpopulated.
+    root is rejected before descending into it); the other fields are then
+    always empty/None, not merely unpopulated.
+
+    All collection fields are tuples, and __post_init__ rejects anything
+    else. `frozen=True` only prevents field REASSIGNMENT — it does not
+    freeze a list stored in a field, and the eleventh-pass review
+    demonstrated exactly that by calling `.clear()` on a discovery's file
+    list after construction.
     """
 
     root: Path
-    entity_files: list[Path]
+    documents: tuple[DiscoveredDocument, ...]
+    manifest: DiscoveredDocument | None
     root_is_symlink: bool
-    internal_symlinks: list[Path]
-    traversal_errors: list[OSError]
+    internal_symlinks: tuple[Path, ...]
+    traversal_errors: tuple[OSError, ...]
+    token: object = field(repr=False, compare=False, default=None)
+
+    def __post_init__(self):
+        if self.token is not _WALK_TOKEN:
+            raise ValueError(
+                "PackageDiscovery must be built by discover_package — a "
+                "discovery that did not come from an actual filesystem walk "
+                "can assert anything about a package, including that a "
+                "known-invalid one is empty (H-23)"
+            )
+        for name in ("documents", "internal_symlinks", "traversal_errors"):
+            value = getattr(self, name)
+            if not isinstance(value, tuple):
+                raise TypeError(
+                    f"PackageDiscovery.{name} must be a tuple, not "
+                    f"{type(value).__name__} — mutable collections in a "
+                    f"frozen dataclass are not immutable (M-29)"
+                )
+        # A discovery whose contents don't belong to its own root is a
+        # self-inconsistent validation input — the exact hole H-23
+        # demonstrated at the ValidationContext level, closed here at the
+        # level where a hand-built object could otherwise smuggle it in.
+        for path in tuple(d.path for d in self.documents) + self.internal_symlinks:
+            if not path.is_relative_to(self.root):
+                raise ValueError(
+                    f"PackageDiscovery for root {self.root} contains {path}, "
+                    f"which is outside that root"
+                )
+        if self.root_is_symlink and (self.documents or self.internal_symlinks
+                                     or self.traversal_errors or self.manifest):
+            raise ValueError(
+                f"PackageDiscovery for symlinked root {self.root} must be "
+                f"empty — a symlinked root is never walked"
+            )
+
+    @property
+    def entity_files(self) -> tuple[Path, ...]:
+        """Paths of every discovered entity document, in discovery order."""
+        return tuple(d.path for d in self.documents)
 
 
 def discover_package(inv_path: Path) -> PackageDiscovery:
-    """One walk of one package root, producing every fact a validator's
-    preflight and entity-iteration steps need."""
+    """One walk of one package root, followed by one read of each document
+    it found, producing every fact a validator's preflight, entity-iteration
+    and manifest steps need. This and _walk_package are the only places
+    package content enters validation."""
     if inv_path.is_symlink():
         return PackageDiscovery(
-            root=inv_path, entity_files=[], root_is_symlink=True,
-            internal_symlinks=[], traversal_errors=[],
+            root=inv_path, documents=(), manifest=None, root_is_symlink=True,
+            internal_symlinks=(), traversal_errors=(), token=_WALK_TOKEN,
         )
     files, symlinks, errors = _walk_package(inv_path)
     entity_files = sorted(
         p for p in files if p.suffix in (".yaml", ".yml") and p.name != MANIFEST_NAME
     )
+    documents = tuple(_read_document(p) for p in entity_files)
+    manifest_path = find_manifest(inv_path)
+    manifest = _read_document(manifest_path) if manifest_path is not None else None
     return PackageDiscovery(
-        root=inv_path, entity_files=entity_files, root_is_symlink=False,
-        internal_symlinks=sorted(symlinks), traversal_errors=errors,
+        root=inv_path, documents=documents, manifest=manifest, root_is_symlink=False,
+        internal_symlinks=tuple(sorted(symlinks)), traversal_errors=tuple(errors),
+        token=_WALK_TOKEN,
     )
 
 
-def discover_packages(investigation_paths: list[Path]) -> list[PackageDiscovery]:
-    """One PackageDiscovery per requested root, each from its own single
-    walk. CALL THIS ONCE per CLI run and pass the SAME result to every
-    `run_*_validation(..., discoveries=...)` call — every validator accepts
-    that parameter and falls back to calling this itself only when omitted
-    (see validate.py's `run_all_checks`, the actual entry point for a
-    `--check all` run and for `--self-test`). Calling this separately per
-    validator, rather than once and threading the result through, re-walks
-    the same tree once per validator — the tenth-pass review's own
-    CodeRabbit pass caught exactly that gap in this function's first
-    version."""
-    return [discover_package(p) for p in investigation_paths]
+def _read_document(path: Path) -> DiscoveredDocument:
+    data, error = load_yaml(path)
+    return DiscoveredDocument(path=path, data=data, error=error)
 
 
-def preflight_diagnostics(discoveries: list[PackageDiscovery], validator: str) -> list[Diagnostic]:
+@dataclass(frozen=True)
+class ValidationContext:
+    """
+    The single, self-consistent input to every `run_*_validation` function
+    (eleventh-pass review H-23).
+
+    Validators previously took BOTH `investigation_paths` and an optional
+    `discoveries` list, with nothing checking that the two described the
+    same packages. The review passed an EMPTY discovery alongside the
+    known-invalid `fixtures/invalid/duplicate-version-id` root and got
+    `passed=True, errors=[]` — a vacuous pass, which invariant 10 exists
+    specifically to prohibit. The production CLI happened to construct
+    matching inputs, so this was never a CLI bypass; it was a hole in the
+    reusable Python API, which is the surface a future MCP server would
+    build on.
+
+    The fix is not to cross-check two inputs but to have only one: roots
+    are DERIVED from the discoveries, so a context whose roots and
+    discoveries disagree is unrepresentable rather than merely rejected.
+    Build one with `ValidationContext.for_paths(paths)` — the single
+    controlled factory — and pass the same context to every validator in a
+    run so each package is walked and read exactly once for the whole run.
+    """
+
+    discoveries: tuple[PackageDiscovery, ...]
+
+    def __post_init__(self):
+        if not isinstance(self.discoveries, tuple):
+            raise TypeError(
+                f"ValidationContext.discoveries must be a tuple, not "
+                f"{type(self.discoveries).__name__} (M-29)"
+            )
+        for d in self.discoveries:
+            if not isinstance(d, PackageDiscovery):
+                raise TypeError(
+                    f"ValidationContext.discoveries must contain "
+                    f"PackageDiscovery objects, found {type(d).__name__}"
+                )
+        roots = [d.root for d in self.discoveries]
+        if len(set(roots)) != len(roots):
+            raise ValueError(
+                f"ValidationContext has duplicate package roots: {roots} — "
+                f"a package would be validated, and its diagnostics "
+                f"reported, more than once"
+            )
+
+    @classmethod
+    def for_paths(cls, investigation_paths) -> "ValidationContext":
+        """The one controlled way to build a context: walk and read each
+        requested root exactly once. CALL THIS ONCE per validation run and
+        pass the result to every validator (see validate.py's
+        `run_all_checks`) — building a separate context per validator
+        re-walks and re-reads every package once per validator, which is
+        both wasted I/O and the divergence DiscoveredDocument exists to
+        prevent."""
+        return cls(discoveries=tuple(discover_package(p) for p in investigation_paths))
+
+    @property
+    def roots(self) -> tuple[Path, ...]:
+        """The package roots this context covers. Derived from the
+        discoveries, never stored alongside them — that split was H-23."""
+        return tuple(d.root for d in self.discoveries)
+
+    @property
+    def real_roots(self) -> tuple[Path, ...]:
+        """Roots that were actually walked, i.e. excluding symlinked roots
+        (which are rejected by preflight and never inspected). This is the
+        set a validator should use for package-ownership questions."""
+        return tuple(d.root for d in self.discoveries if not d.root_is_symlink)
+
+    def entity_files(self) -> list[Path]:
+        """Every discovered entity path across every package, globally
+        sorted so multi-package runs report in a stable order."""
+        return sorted(p for d in self.discoveries for p in d.entity_files)
+
+    def documents(self) -> list[DiscoveredDocument]:
+        """Every discovered document across every package, globally sorted
+        by path — including ones that failed to parse, which only
+        validate_schema reports on."""
+        return sorted(
+            (doc for d in self.discoveries for doc in d.documents),
+            key=lambda doc: doc.path,
+        )
+
+    def entities(self) -> Iterator[Tuple[Path, dict]]:
+        """(path, data) for every parseable, non-empty entity document —
+        the iteration path for validators that only inspect well-formed
+        entities. No filesystem access: the content was read once at
+        discovery."""
+        for doc in self.documents():
+            if doc.data is not None and doc.error is None:
+                yield doc.path, doc.data
+
+    @cached_property
+    def _documents_by_path(self) -> dict[Path, DiscoveredDocument]:
+        """Path -> document index, built once on first lookup. Manifest
+        validation looks up one document per manifest entry, so a linear
+        scan would make that pass quadratic in package size — the same
+        repeated-work shape the tenth-pass review flagged for walks
+        (M-24) and the eleventh for reads (M-29). `cached_property` writes
+        straight into __dict__, which is why it works on a frozen
+        dataclass."""
+        return {doc.path: doc for d in self.discoveries for doc in d.documents}
+
+    def document_for(self, path: Path) -> DiscoveredDocument | None:
+        """The already-read document at `path`, or None if this context
+        never discovered it. Used by manifest validation to check
+        manifest-listed files against the SAME bytes the other validators
+        saw, instead of re-opening them."""
+        return self._documents_by_path.get(path)
+
+
+def preflight_diagnostics(context: ValidationContext, validator: str) -> list[Diagnostic]:
     """
     Every filesystem-integrity diagnostic (symlinked root, internal symlink,
     unreadable subtree) a validator must report BEFORE its own domain checks
-    run, for the given discoveries.
+    run, for the given context.
 
-    Every validator that consumes entity files via `discoveries` must call
-    this too (tenth-pass review M-27: only `run_reference_validation` used
-    to reject internal symlinks — `find_entity_files` silently excludes a
-    symlinked entity file either way, so the other four standalone checks
-    passed vacuously on a package they had not actually fully inspected,
-    same failure class as the eighth-pass M-22/H-22 root and traversal gaps).
+    Every validator must call this (tenth-pass review M-27: only
+    `run_reference_validation` used to reject internal symlinks — discovery
+    silently excludes a symlinked entity file either way, so the other four
+    standalone checks passed vacuously on a package they had not actually
+    fully inspected, same failure class as the eighth-pass M-22/H-22 root
+    and traversal gaps).
     """
     diagnostics = []
-    for d in discoveries:
+    for d in context.discoveries:
         if d.root_is_symlink:
             diagnostics.append(Diagnostic(
                 "INVESTIGATION_ROOT_SYMLINK", validator, str(d.root),
@@ -177,21 +385,6 @@ def preflight_diagnostics(discoveries: list[PackageDiscovery], validator: str) -
                 f"inspectable",
             ))
     return diagnostics
-
-
-def entity_files_from(discoveries: list[PackageDiscovery]) -> list[Path]:
-    """All entity files across every discovery, globally sorted — matches
-    find_entity_files's ordering for callers that iterate multiple packages."""
-    return sorted(p for d in discoveries for p in d.entity_files)
-
-
-def entities_from(discoveries: list[PackageDiscovery]) -> Iterator[Tuple[Path, dict]]:
-    """Yield (path, data) for every parseable entity file across every
-    discovery, without re-walking the filesystem."""
-    for path in entity_files_from(discoveries):
-        data, error = load_yaml(path)
-        if data is not None and error is None:
-            yield path, data
 
 
 def find_entity_files(investigation_paths: list[Path]) -> list[Path]:
@@ -245,7 +438,7 @@ def find_traversal_errors(investigation_paths: list[Path]) -> list[tuple[Path, O
     return result
 
 
-def find_manifest(investigation_path: Path) -> Optional[Path]:
+def find_manifest(investigation_path: Path) -> Path | None:
     """The package manifest for an investigation, if present. A symlinked
     investigation root has no manifest by definition (see find_entity_files).
     A manifest FILE that is itself a symlink is also refused — it would
@@ -298,7 +491,7 @@ def find_all_symlinks(investigation_paths: list[Path]) -> list[Path]:
     return sorted(found)
 
 
-def load_yaml(path: Path) -> Tuple[Optional[dict], Optional[str]]:
+def load_yaml(path: Path) -> Tuple[dict | None, str | None]:
     """
     Load a YAML file. Returns (data, error).
     Rejects duplicate keys — silent duplicate-key overwrites are a data

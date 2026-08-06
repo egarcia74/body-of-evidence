@@ -14,11 +14,7 @@ from pathlib import Path
 
 from boe_files import (
     Diagnostic,
-    PackageDiscovery,
-    discover_packages,
-    entity_files_from,
-    find_manifest,
-    load_yaml,
+    ValidationContext,
     preflight_diagnostics,
 )
 
@@ -72,18 +68,19 @@ def validate_data(data: dict, schema: dict, registry, context: str) -> list[Diag
 
 
 def run_schema_validation(
-    investigation_paths: list[Path],
+    context: ValidationContext,
     schema_dir: Path,
     verbose: bool = False,
-    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
     """Returns (passed, errors). Counts validated files so callers can detect vacuous runs.
 
-    `discoveries`, if provided, is a pre-built list[PackageDiscovery] — pass
-    it when running multiple checks over the same paths (see
-    validate.py's run_all_checks) so the package tree is walked once for
-    the whole run, not once per check. Computed from investigation_paths
-    when omitted, for standalone/direct calls (e.g. tests)."""
+    `context` is the single, self-consistent input to this check — it owns
+    both the package roots and their one-walk-one-read discovery
+    (eleventh-pass review H-23). This validator is also where the split API
+    was most visibly wrong: entity files came from `discoveries` while
+    manifests were re-derived by iterating `investigation_paths`, so with
+    mismatched inputs the two halves of one check inspected two different
+    sets of packages."""
     if not JSONSCHEMA_AVAILABLE:
         return False, [_err(
             "SCHEMA_JSONSCHEMA_UNAVAILABLE", "<repo>",
@@ -95,14 +92,12 @@ def run_schema_validation(
     # root, internal symlink, unreadable subtree) this check must fail
     # closed on, instead of certifying a package it did not completely or
     # safely inspect (eighth-pass M-22, tenth-pass M-24/M-27).
-    if discoveries is None:
-        discoveries = discover_packages(investigation_paths)
-    all_errors = preflight_diagnostics(discoveries, VALIDATOR)
+    all_errors = preflight_diagnostics(context, VALIDATOR)
     validated = 0
 
     # Entity files
-    for yaml_file in entity_files_from(discoveries):
-        data, error = load_yaml(yaml_file)
+    for document in context.documents():
+        yaml_file, data, error = document.path, document.data, document.error
         if error:
             all_errors.append(_err("YAML_PARSE_ERROR", yaml_file, error))
             continue
@@ -130,13 +125,12 @@ def run_schema_validation(
 
     # Package manifests
     package_schema = load_schema(schema_dir, "package")
-    for inv_path in investigation_paths:
-        manifest_path = find_manifest(inv_path)
-        if manifest_path is None:
+    for discovery in context.discoveries:
+        if discovery.manifest is None:
             continue
-        data, error = load_yaml(manifest_path)
-        if error:
-            all_errors.append(_err("YAML_PARSE_ERROR", manifest_path, error))
+        manifest_path, data = discovery.manifest.path, discovery.manifest.data
+        if discovery.manifest.error:
+            all_errors.append(_err("YAML_PARSE_ERROR", manifest_path, discovery.manifest.error))
             continue
         if data is None or package_schema is None:
             continue
