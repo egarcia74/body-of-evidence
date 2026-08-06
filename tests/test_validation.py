@@ -10,9 +10,11 @@ Run with: pytest tests/
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -21,11 +23,12 @@ import yaml
 REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from validate_schema import run_schema_validation
+from boe_files import Diagnostic, ValidationContext
 from validate_ids import run_id_validation, validate_id_format, validate_ulid
-from validate_references import run_reference_validation
 from validate_orphans import run_orphan_validation
 from validate_provenance import run_provenance_validation
+from validate_references import run_reference_validation
+from validate_schema import run_schema_validation
 
 SCHEMA_DIR = REPO_ROOT / "schema"
 FIXTURES = REPO_ROOT / "fixtures"
@@ -87,7 +90,7 @@ class TestSchemaFiles:
     def test_examples_validate_against_schemas(self):
         """Every example must validate against its declared schema."""
         passed, errors = run_schema_validation(
-            [REPO_ROOT / "examples"], SCHEMA_DIR, verbose=False
+            ValidationContext.for_paths([REPO_ROOT / "examples"]), SCHEMA_DIR, verbose=False
         )
         assert passed, "Examples failed schema validation:\n" + "\n".join(str(e) for e in errors)
 
@@ -135,7 +138,7 @@ class TestValidFixture:
     @pytest.mark.parametrize("check", ALL_CHECKS, ids=lambda c: c.__name__)
     def test_valid_fixture_passes(self, valid_packages, check):
         passed, errors = check(
-            investigation_paths=valid_packages,
+            context=ValidationContext.for_paths(valid_packages),
             schema_dir=SCHEMA_DIR,
             verbose=False,
         )
@@ -166,7 +169,7 @@ class TestVersioningModel:
     def test_repeated_stable_id_with_distinct_versions_passes(self):
         pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
         passed, errors = run_id_validation(
-            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+            context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
         )
         assert passed, (
             "Repeated stable id with distinct version_ids must validate:\n"
@@ -208,7 +211,7 @@ class TestInvalidFixtures:
         tuples = []
         for check in ALL_CHECKS:
             _, errors = check(
-                investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+                context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
             )
             tuples.extend((e.validator, e.code, self._relativize(e.path), e.location) for e in errors)
         return sorted(tuples)
@@ -240,6 +243,16 @@ class TestInvalidFixtures:
             ("revision-unrelated-endpoints", [
                 ("references", "REVISION_ENTITY_MISMATCH",
                  "fixtures/invalid/revision-unrelated-endpoints/revision-broken.yaml", "old_version_id"),
+            ]),
+            # A manifest entry whose path exists and matches the schema's
+            # .ya?ml$ pattern, but which discovery does not treat as an
+            # entity document. Reading such a path used to be attempted
+            # directly, so a failure silently skipped the entry's id/
+            # version_id checks — fail-open (D-027, CodeRabbit follow-up on
+            # PR #16 asked for a committed fixture, not only a tmp_path test).
+            ("manifest-path-not-an-entity", [
+                ("references", "MANIFEST_PATH_NOT_AN_ENTITY",
+                 "fixtures/invalid/manifest-path-not-an-entity/package.yaml", "package.yaml"),
             ]),
             ("manifest-no-investigation", [
                 ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-no-investigation/package.yaml", ""),
@@ -398,7 +411,7 @@ class TestCrossPackageReferences:
         assert pkg_b.exists(), "Missing cross_package fixture pkg-b"
 
         passed, errors = run_reference_validation(
-            investigation_paths=[pkg_a, pkg_b], schema_dir=SCHEMA_DIR, verbose=False
+            context=ValidationContext.for_paths([pkg_a, pkg_b]), schema_dir=SCHEMA_DIR, verbose=False
         )
         assert not passed, "Cross-package reference was not rejected"
         codes = {(e.validator, e.code) for e in errors}
@@ -414,7 +427,7 @@ class TestCrossPackageReferences:
         pkg_b = FIXTURES / "cross_package" / "pkg-b"
 
         passed, errors = run_reference_validation(
-            investigation_paths=[pkg_a, pkg_b], schema_dir=SCHEMA_DIR, verbose=False
+            context=ValidationContext.for_paths([pkg_a, pkg_b]), schema_dir=SCHEMA_DIR, verbose=False
         )
         assert not passed
         matches = [
@@ -433,7 +446,7 @@ class TestCrossPackageReferences:
         for pkg_name in ("pkg-a", "pkg-b"):
             pkg = FIXTURES / "cross_package" / pkg_name
             for check in (run_schema_validation, run_id_validation, run_orphan_validation, run_provenance_validation):
-                passed, errors = check(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
+                passed, errors = check(context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False)
                 assert passed, f"{pkg_name} unexpectedly failed {check.__name__}: {[str(e) for e in errors]}"
 
     def test_locally_resolvable_reference_is_not_a_false_positive(self):
@@ -450,7 +463,7 @@ class TestCrossPackageReferences:
 
         for order in ([pkg_a, pkg_b], [pkg_b, pkg_a]):
             _, errors = run_reference_validation(
-                investigation_paths=order, schema_dir=SCHEMA_DIR, verbose=False
+                context=ValidationContext.for_paths(order), schema_dir=SCHEMA_DIR, verbose=False
             )
             false_positives = [
                 e for e in errors
@@ -768,7 +781,7 @@ class TestManifestCurrencyRequired:
         ordinary, correct reference into a false REF_NOT_CURRENT."""
         pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
         passed, errors = run_reference_validation(
-            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+            context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
         )
         not_current = [e for e in errors if e.code == "REF_NOT_CURRENT"]
         assert not not_current, f"Valid fixture's current references were rejected: {not_current}"
@@ -837,7 +850,7 @@ class TestHistoricalReferencesRemainValid:
         )
 
         passed, errors = run_reference_validation(
-            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+            context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
         )
         not_current = [e for e in errors if e.code == "REF_NOT_CURRENT"]
         assert not not_current, (
@@ -887,7 +900,7 @@ class TestHistoricalReferencesRemainValid:
         )
 
         passed, errors = run_reference_validation(
-            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+            context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
         )
         assert not passed
         assert any(e.code == "REF_NOT_FOUND" for e in errors), (
@@ -1150,7 +1163,7 @@ class TestUnreadableSubtreeFailsClosed:
             if list_dir_is_readable(locked):
                 pytest.skip("Directory permissions did not block traversal in this environment (e.g. running as root)")
             passed, errors = run_reference_validation(
-                investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+                context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
             )
         finally:
             locked.chmod(0o755)  # restore so pytest can clean up tmp_path
@@ -1183,7 +1196,7 @@ class TestUnreadableSubtreeFailsClosed:
         try:
             if list_dir_is_readable(locked):
                 pytest.skip("Directory permissions did not block traversal in this environment (e.g. running as root)")
-            passed, errors = check_fn(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
+            passed, errors = check_fn(context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False)
         finally:
             locked.chmod(0o755)  # restore so pytest can clean up tmp_path
 
@@ -1216,7 +1229,7 @@ class TestUnreadableSubtreeFailsClosed:
         symlinked_root = tmp_path / "alias"
         symlinked_root.symlink_to(real_target, target_is_directory=True)
 
-        passed, errors = check_fn(investigation_paths=[symlinked_root], schema_dir=SCHEMA_DIR, verbose=False)
+        passed, errors = check_fn(context=ValidationContext.for_paths([symlinked_root]), schema_dir=SCHEMA_DIR, verbose=False)
 
         assert not passed, (
             f"{check_fn.__module__}: a symlinked package root must fail this "
@@ -1241,14 +1254,14 @@ class TestUnreadableSubtreeFailsClosed:
         symlinked file via find_entity_files, which already silently
         excludes symlinks by design, and so passed VACUOUSLY without ever
         explaining why. This proves all five now reject it, each under its
-        own validator name, from one shared boe_files.discover_packages
-        walk (not five independent ones)."""
+        own validator name, from one shared ValidationContext walk (not five
+        independent ones)."""
         pkg = tmp_path / "harbour-tender-inquiry"
         shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
         stray_symlink = pkg / "claims" / "stray-symlink.yaml"
         stray_symlink.symlink_to(pkg / "investigation.yaml")
 
-        passed, errors = check_fn(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
+        passed, errors = check_fn(context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False)
 
         assert not passed, (
             f"{check_fn.__module__}: an internal symlink must fail this "
@@ -1264,42 +1277,579 @@ class TestUnreadableSubtreeFailsClosed:
 
 class TestSharedDiscoveryAcrossChecks:
     """Tenth-pass review CodeRabbit follow-up to D-024/M-24: the initial fix
-    made each run_*_validation call discover_packages exactly once, but
+    made each run_*_validation build its own discovery exactly once, but
     run_all_checks (the actual CLI/self-test entry point) still called each
     of the five checks independently, so a real `--check all` invocation —
     or a single --self-test fixture pass — walked every package root once
     PER VALIDATOR, five times total, not once for the whole run. The claim
     "one walk per package" was true per validator call, false for a full
-    run. run_all_checks now builds one list[PackageDiscovery] and passes it
-    to every check via the new `discoveries` parameter; this proves it by
-    counting actual boe_files.discover_package calls."""
+    run. run_all_checks now builds one ValidationContext and passes it to
+    every check.
+
+    Eleventh-pass review L-12: the original version of this test patched
+    the discover_package FACTORY and counted its calls, which proves the
+    wiring but not the I/O invariant — it would still have passed if a
+    validator reached past the factory to _walk_package or to one of the
+    retained find_* primitives, which is exactly the escape hatch the claim
+    needs to exclude. The factory-call test is kept below as a wiring test;
+    the authoritative one patches _walk_package, the single function in the
+    codebase that actually touches the directory tree."""
+
+    @staticmethod
+    def _counting(monkeypatch, attr):
+        """Patch boe_files.<attr> with a call-counting wrapper. Both the
+        factory and _walk_package are looked up as module globals at call
+        time, so patching here reaches every caller including validators
+        that imported names via `from boe_files import ...`."""
+        import boe_files
+
+        calls = []
+        real = getattr(boe_files, attr)
+
+        def counting(inv_path, *args, **kwargs):
+            calls.append(inv_path)
+            return real(inv_path, *args, **kwargs)
+
+        monkeypatch.setattr(boe_files, attr, counting)
+        return calls
 
     def test_run_all_checks_walks_each_package_exactly_once(self, monkeypatch):
-        import boe_files
+        """The real I/O invariant: one filesystem traversal per package root
+        for a complete five-check run, counted at _walk_package itself."""
         import validate as v
 
-        call_count = {"n": 0}
-        real_discover_package = boe_files.discover_package
-
-        def counting_discover_package(inv_path):
-            call_count["n"] += 1
-            return real_discover_package(inv_path)
-
-        # boe_files.discover_packages calls discover_package by module-global
-        # lookup at call time, so patching it here also affects validate.py's
-        # `from boe_files import discover_packages` — same function object.
-        monkeypatch.setattr(boe_files, "discover_package", counting_discover_package)
+        walks = self._counting(monkeypatch, "_walk_package")
 
         pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
         passed, results = v.run_all_checks([pkg], SCHEMA_DIR, False, v.CHECKS)
 
         assert passed, f"Valid fixture must pass run_all_checks: {results}"
-        assert call_count["n"] == 1, (
-            f"Expected exactly one discover_package call for one package "
-            f"root across all five checks, got {call_count['n']} — a check "
-            f"is walking the tree independently instead of using the "
-            f"discoveries run_all_checks already built"
+        assert walks == [pkg], (
+            f"Expected exactly one _walk_package call for one package root "
+            f"across all five checks, got {walks} — a check is traversing "
+            f"the tree independently instead of using the context "
+            f"run_all_checks already built"
         )
+
+    def test_run_all_checks_walks_each_of_several_packages_exactly_once(self, monkeypatch):
+        """One walk PER ROOT, not one walk total — a context that dropped or
+        deduplicated a root would pass a single-package version of this test.
+        """
+        import validate as v
+
+        walks = self._counting(monkeypatch, "_walk_package")
+
+        pkg_a = FIXTURES / "cross_package" / "pkg-a"
+        pkg_b = FIXTURES / "cross_package" / "pkg-b"
+        v.run_all_checks([pkg_a, pkg_b], SCHEMA_DIR, False, v.CHECKS)
+
+        assert sorted(walks) == sorted([pkg_a, pkg_b]), (
+            f"Expected exactly one _walk_package call per package root, got {walks}"
+        )
+
+    def test_run_all_checks_builds_the_discovery_factory_once_per_package(self, monkeypatch):
+        """Wiring-level companion to the traversal test above: the context
+        factory itself is also invoked once per root, so a regression that
+        rebuilt contexts per validator is reported as such rather than only
+        showing up as extra walks."""
+        import validate as v
+
+        built = self._counting(monkeypatch, "discover_package")
+
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        v.run_all_checks([pkg], SCHEMA_DIR, False, v.CHECKS)
+
+        assert built == [pkg], (
+            f"Expected exactly one discover_package call for one package "
+            f"root across all five checks, got {built}"
+        )
+
+    def test_each_document_is_read_exactly_once_per_run(self, monkeypatch):
+        """Eleventh-pass review M-29: five validators re-opening the same
+        paths could each observe different bytes. Every document's bytes are
+        now read once per run at discovery; validators parse those bytes
+        rather than re-reading the file."""
+        import boe_files
+        import validate as v
+
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        # Build the expectation BEFORE patching, so this probe's own reads
+        # are not counted as the run's.
+        context = boe_files.ValidationContext.for_paths([pkg])
+        expected = set(context.entity_files()) | {pkg / boe_files.MANIFEST_NAME}
+
+        # Counted at boe_files._read_bytes_nofollow, the single function
+        # that reads document content.
+        reads = self._counting(monkeypatch, "_read_bytes_nofollow")
+        passed, results = v.run_all_checks([pkg], SCHEMA_DIR, False, v.CHECKS)
+
+        assert passed, f"Valid fixture must pass run_all_checks: {results}"
+        assert len(reads) == len(set(reads)), (
+            f"Every document must be read exactly once per run; these were "
+            f"read more than once: "
+            f"{sorted({p for p in reads if reads.count(p) > 1})}"
+        )
+        assert set(reads) == expected, (
+            f"Reads did not match the discovered document set. "
+            f"Unexpected: {set(reads) - expected}; missing: {expected - set(reads)}"
+        )
+
+    def test_no_validator_reopens_a_document_from_disk(self, monkeypatch):
+        """The complement: once the context exists, running all five checks
+        performs NO further filesystem reads of document content. Proven by
+        making any read after context construction raise."""
+        import boe_files
+        import validate as v
+
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        context = boe_files.ValidationContext.for_paths([pkg])
+
+        # Scoped to the PACKAGE tree: schema/*.json are legitimately read by
+        # the schema validator and are not package documents. Every route to
+        # file content is guarded, not just the one discovery happens to use.
+        def _guard(real):
+            def wrapper(target, *a, **k):
+                # os.open also accepts an int fd or bytes; only a real path
+                # can be inside the package, and Path() would raise on the
+                # rest, so non-path targets pass straight through.
+                try:
+                    inside = Path(target).is_relative_to(pkg)
+                except TypeError:
+                    inside = False
+                if inside:
+                    raise AssertionError(f"{target} was re-read after discovery")
+                return real(target, *a, **k)
+            return wrapper
+
+        monkeypatch.setattr(boe_files, "_read_bytes_nofollow",
+                            _guard(boe_files._read_bytes_nofollow))
+        monkeypatch.setattr(Path, "read_bytes", _guard(Path.read_bytes))
+        monkeypatch.setattr("builtins.open", _guard(open))
+        monkeypatch.setattr(os, "open", _guard(os.open))
+
+        results = {}
+        for name, check_fn in v.CHECKS.items():
+            passed, errors = check_fn(context=context, schema_dir=SCHEMA_DIR, verbose=False)
+            results[name] = (passed, errors)
+        assert all(passed for passed, _ in results.values()), results
+
+
+class TestValidationContextIsSelfConsistent:
+    """Eleventh-pass review H-23. Every run_*_validation used to accept BOTH
+    `investigation_paths` and an optional `discoveries` list, with no
+    boundary checking that the two described the same packages. The review
+    passed an EMPTY discovery alongside the known-invalid
+    fixtures/invalid/duplicate-version-id root and got `passed=True,
+    errors=[]` — a vacuous pass, which core invariant 10 exists to prohibit.
+
+    The fix is structural rather than defensive: roots are DERIVED from the
+    discoveries, so a context whose roots and discovery disagree cannot be
+    constructed at all. These tests pin that down from both directions —
+    the known-invalid package cannot be hidden, AND the inconsistent inputs
+    that used to hide it are now rejected at construction."""
+
+    INVALID_PKG = FIXTURES / "invalid" / "duplicate-version-id"
+
+    @pytest.mark.parametrize("check_fn", ALL_CHECKS, ids=lambda f: f.__module__)
+    def test_no_check_accepts_a_bare_path_list_in_place_of_a_context(self, check_fn):
+        """The old vacuous-pass shape is now a type error, not a silent
+        success: there is no parameter left that takes roots separately."""
+        with pytest.raises((TypeError, AttributeError)):
+            check_fn(
+                context=[self.INVALID_PKG], schema_dir=SCHEMA_DIR, verbose=False
+            )
+
+    def test_known_invalid_package_is_rejected_through_its_own_context(self):
+        """Baseline for the tests below: built the one supported way, this
+        package fails. Any 'passed' result in this class is therefore a real
+        finding about the API, not about the fixture."""
+        passed, errors = run_id_validation(
+            context=ValidationContext.for_paths([self.INVALID_PKG]),
+            schema_dir=SCHEMA_DIR, verbose=False,
+        )
+        assert not passed and errors, (
+            "fixtures/invalid/duplicate-version-id must fail id validation"
+        )
+
+    def test_empty_context_cannot_be_pointed_at_a_package(self):
+        """The review's exact probe: an empty discovery can still be built,
+        but it no longer carries the invalid root along with it — validating
+        nothing now reports nothing, and the CLI's own empty-run guard
+        (validate.py main) is what turns that into a failure."""
+        passed, errors = run_id_validation(
+            context=ValidationContext(discoveries=()),
+            schema_dir=SCHEMA_DIR, verbose=False,
+        )
+        assert passed and errors == [], (
+            "An empty context validates nothing, so it has nothing to report"
+        )
+        # The point being that it cannot ALSO claim to have covered a root.
+        assert ValidationContext(discoveries=()).roots == ()
+
+    def test_a_fabricated_discovery_is_not_claimed_to_be_prevented(self):
+        """H-24 (post-eleventh-pass feedback). An earlier version of this response
+        used a module-private "proof-of-walk" token so a discovery could only
+        come from a real walk. That claim was wrong: the reviewer imported
+        `boe_files._WALK_TOKEN` — a leading underscore is a naming
+        convention, not access control — built an empty discovery for this
+        known-invalid package, and got a clean pass.
+
+        The token is gone. No in-process mechanism can stop a caller who is
+        already executing in the same interpreter from constructing whatever
+        object it likes, so this project does not claim one. What it claims
+        instead is pinned by the two tests below: the SUPPORTED API cannot
+        express the vacuous pass, and it reports this package truthfully."""
+        import boe_files
+
+        # Deliberately demonstrating the residual: this is not prevented.
+        fabricated = boe_files.PackageDiscovery(
+            root=self.INVALID_PKG, documents=(), manifest=None,
+            root_is_symlink=False, internal_symlinks=(), traversal_errors=(),
+        )
+        passed, errors = run_id_validation(
+            context=ValidationContext(discoveries=(fabricated,)),
+            schema_dir=SCHEMA_DIR, verbose=False,
+        )
+        assert (passed, errors) == (True, []), (
+            "If this ever starts failing, the honest documentation of the "
+            "trust boundary in boe_files.PackageDiscovery and D-027 needs "
+            "updating — not this assertion"
+        )
+
+    def test_the_supported_api_cannot_express_the_vacuous_pass(self):
+        """The claim that replaces the token: `validate.validate_paths` takes
+        paths plus ordinary configuration (which checks, whether an empty run
+        is intentional) — but no caller-supplied validation STATE, so there is
+        no parameter through which a fabricated discovery could enter."""
+        import inspect
+
+        import validate as v
+
+        params = inspect.signature(v.validate_paths).parameters
+        assert "discoveries" not in params and "context" not in params, (
+            f"validate_paths must not accept caller-supplied validation "
+            f"state; got parameters {list(params)}"
+        )
+        passed, _ = v.validate_paths([self.INVALID_PKG], SCHEMA_DIR)
+        assert not passed, (
+            "The supported API must report the known-invalid package"
+        )
+
+    @pytest.mark.parametrize("kwargs", [
+        pytest.param({"paths": []}, id="no-paths"),
+        pytest.param({"checks": {}}, id="no-checks"),
+    ], )
+    def test_supported_api_refuses_to_report_success_for_an_empty_run(self, kwargs):
+        """Invariant 10 at the trust boundary: the API this project points
+        callers at must not answer "passed" for having validated nothing —
+        including when the emptiness comes from the check selection rather
+        than the paths."""
+        import validate as v
+
+        call = {"paths": [self.INVALID_PKG], "schema_dir": SCHEMA_DIR}
+        call.update(kwargs)
+        passed, results = v.validate_paths(**call)
+        assert not passed, f"Empty run reported success: {results}"
+
+        # ...and the refusal is this guard's, opted out of by allow_empty —
+        # not merely some other check happening to fail. (An empty PATH list
+        # still fails afterwards, because validate_schema has its own
+        # vacuous-run guard; that is defence in depth, not this guard.)
+        _, opted_in = v.validate_paths(**call, allow_empty=True)
+        assert isinstance(opted_in, Mapping), (
+            f"validate_paths must return a results mapping, got "
+            f"{type(opted_in).__name__} — the sentinel check below would "
+            f"otherwise pass for the wrong reason"
+        )
+        assert "_" not in opted_in, (
+            f"allow_empty=True must lift this guard specifically: {opted_in}"
+        )
+
+    def test_containment_is_enforced_within_a_discovery(self):
+        """Self-consistency guard against a factory bug (NOT a security
+        control — see the test above): a discovery whose documents belong to
+        a different root is rejected at construction."""
+        import boe_files
+
+        foreign = boe_files.discover_package(FIXTURES / "valid" / "harbour-tender-inquiry")
+        with pytest.raises(ValueError, match="outside that root"):
+            boe_files.PackageDiscovery(
+                root=self.INVALID_PKG, documents=foreign.documents, manifest=None,
+                root_is_symlink=False, internal_symlinks=(), traversal_errors=(),
+            )
+
+    def test_a_real_discovery_of_the_invalid_package_still_reports_it(self):
+        """A truthful discovery of this package still fails — so the vacuous
+        pass above requires actively asserting a falsehood, not merely
+        calling the internals."""
+        import boe_files
+
+        real = boe_files.discover_package(self.INVALID_PKG)
+        assert real.documents, "A real walk of this fixture finds its files"
+        passed, errors = run_id_validation(
+            context=ValidationContext(discoveries=(real,)),
+            schema_dir=SCHEMA_DIR, verbose=False,
+        )
+        assert not passed and errors
+
+    def test_supported_api_tolerates_a_repeated_root(self):
+        """CodeRabbit on PR #16: `__post_init__` rejects duplicate roots, but
+        `for_paths` passed the caller's list straight through — so
+        `validate_paths([pkg, pkg], ...)` raised ValueError OUT of the
+        supported entry point instead of returning a structured result. A
+        `--root` scan yielding the same directory twice would do the same.
+        The factory now deduplicates; the constructor check remains for
+        direct construction."""
+        import validate as v
+
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        passed, results = v.validate_paths([pkg, pkg], SCHEMA_DIR)
+        assert passed, results
+        assert ValidationContext.for_paths([pkg, pkg]).roots == (pkg,)
+
+    def test_empty_run_error_is_a_structured_diagnostic(self):
+        """CodeRabbit on PR #16: every other entry in `results` carries
+        Diagnostic objects, so a consumer reading `e.code`/`e.validator`
+        would break on this one alone if it stayed a bare string."""
+        import validate as v
+
+        _, results = v.validate_paths([], SCHEMA_DIR)
+        errors = results["_"]["errors"]
+        assert errors and all(isinstance(e, Diagnostic) for e in errors), errors
+        assert errors[0].code == "EMPTY_RUN" and errors[0].validator == "validate"
+
+    def test_context_rejects_duplicate_roots(self):
+        """A root listed twice would validate the package twice and report
+        every diagnostic twice — which the exact, duplicate-preserving
+        assertions elsewhere in this file would then read as real
+        duplicates."""
+        import boe_files
+
+        d = boe_files.discover_package(self.INVALID_PKG)
+        with pytest.raises(ValueError, match="duplicate package roots"):
+            ValidationContext(discoveries=(d, d))
+
+    def test_context_rejects_a_mutable_discoveries_collection(self):
+        import boe_files
+
+        with pytest.raises(TypeError, match="must be a tuple"):
+            ValidationContext(discoveries=[boe_files.discover_package(self.INVALID_PKG)])
+
+
+class TestYamlLoadingIsSafe:
+    """`boe_files._parse_yaml` calls `yaml.load(..., Loader=_strict_loader())`
+    rather than `yaml.safe_load`, because a custom Loader is the only way to
+    reject duplicate keys — which safe_load cannot do, and which this project
+    treats as a data-integrity hazard in hand-authored evidence files.
+
+    Static analysis flags any `yaml.load` as unsafe (Bandit B506). The
+    `# nosec` comment in boe_files.py points at THIS class so its reasoning is
+    checked rather than merely asserted — note that Codacy's hosted Bandit
+    does NOT honour that inline suppression, so the finding is dismissed in
+    Codacy's UI instead; these tests are what make that dismissal auditable
+    from the repository."""
+
+    def test_strict_loader_is_a_safe_loader(self):
+        import boe_files
+
+        assert issubclass(boe_files._strict_loader(), yaml.SafeLoader)
+
+    @pytest.mark.parametrize("payload", [
+        b'!!python/object/apply:os.system ["echo pwned"]',
+        b'!!python/object/new:os.system ["echo pwned"]',
+        b'!!python/name:os.system',
+    ])
+    def test_arbitrary_object_tags_are_rejected(self, payload):
+        """The behaviour B506 exists to prevent, asserted directly."""
+        import boe_files
+
+        data, error = boe_files.parse_yaml_bytes(payload, Path("probe.yaml"))
+        assert data is None
+        assert error is not None and "yaml error" in error.lower()
+
+    def test_duplicate_keys_are_rejected(self):
+        """...and the reason a plain safe_load will not do."""
+        import boe_files
+
+        data, error = boe_files.parse_yaml_bytes(
+            b"type: claim\ntype: evidence\n", Path("probe.yaml")
+        )
+        assert data is None
+        assert error is not None and "duplicate key" in error.lower()
+
+
+class TestValidatorsCannotCorruptEachOther:
+    """H-24 (post-eleventh-pass feedback). D-026 gave every validator a SHARED
+    parsed `dict` and claimed they "necessarily inspect the same bytes". The
+    reviewer took a genuine discovery of a known-invalid package, changed one
+    `version_id` in that shared dict, and turned a failing package into a
+    passing one — so the shared object made validators LESS isolated than
+    re-reading had, not more.
+
+    Documents now hold raw bytes plus a digest, and `parse()` builds a fresh
+    object graph per call. The guarantee is stated as: one filesystem read
+    per document per run, every validator parsing identical bytes, and no
+    validator able to affect another's view."""
+
+    INVALID_PKG = FIXTURES / "invalid" / "duplicate-version-id"
+
+    def test_mutating_parsed_output_cannot_change_a_later_result(self):
+        """The reviewer's exact probe. Mutating what one caller gets back
+        must not alter what the next caller sees."""
+        context = ValidationContext.for_paths([self.INVALID_PKG])
+        assert not run_id_validation(
+            context=context, schema_dir=SCHEMA_DIR, verbose=False
+        )[0], "Baseline: this package must fail"
+
+        mutated = 0
+        # DISTINCT valid version_ids per entity, not one shared literal.
+        # This fixture fails precisely because two files share a version_id;
+        # writing the SAME value into every entity would leave it duplicate-
+        # ridden either way, so the assertion below would hold whether or not
+        # the mutation leaked — a test that passes with the guarantee
+        # withdrawn is not evidence (D-025/M-28's exact failure mode, caught
+        # here by the local CodeRabbit pass and verified by temporarily
+        # reintroducing the shared-graph regression).
+        for _path, data in context.entities():
+            if "version_id" in data:
+                data["version_id"] = f"01JQV{mutated:021d}"
+                mutated += 1
+        assert mutated >= 2, "Probe must actually have mutated the duplicates"
+
+        passed, errors = run_id_validation(
+            context=context, schema_dir=SCHEMA_DIR, verbose=False
+        )
+        assert not passed and errors, (
+            "Mutating one caller's parsed output changed a later validation "
+            "result — validators are sharing a mutable object graph"
+        )
+
+    def test_each_parse_returns_an_independent_object_graph(self):
+        context = ValidationContext.for_paths([self.INVALID_PKG])
+        doc = context.documents()[0]
+        first, _ = doc.parse()
+        second, _ = doc.parse()
+        assert first == second and first is not second, (
+            "parse() must return an equal but distinct object each call"
+        )
+        first["injected"] = True
+        third, _ = doc.parse()
+        assert "injected" not in third
+
+    def test_every_document_carries_a_digest_of_what_was_read(self):
+        """`digest` is what makes "all validators parsed the same bytes"
+        checkable rather than asserted, and is the hook D-016 needs to verify
+        that what gets published is what was validated."""
+        import hashlib
+
+        context = ValidationContext.for_paths([self.INVALID_PKG])
+        for doc in context.documents():
+            assert doc.raw is not None and doc.read_error is None
+            assert doc.digest == hashlib.sha256(doc.raw).hexdigest()
+            assert doc.digest == hashlib.sha256(doc.path.read_bytes()).hexdigest()
+
+
+class TestSupportedCliEntryPoints:
+    """H-24/M-31: the D-026 signature change left four `python3
+    scripts/validate_*.py` runners crashing on startup, undetected because
+    nothing executed them. Those runners are gone — validate.py is the only
+    entry point — and these tests execute every supported invocation as a
+    real subprocess so a signature change cannot silently break one again."""
+
+    VALIDATE_PY = REPO_ROOT / "scripts" / "validate.py"
+
+    def _run(self, *args):
+        return subprocess.run(
+            [sys.executable, str(self.VALIDATE_PY), *args],
+            capture_output=True, text=True, cwd=REPO_ROOT, check=False,
+        )
+
+    @pytest.mark.parametrize("check", [*[c for c in ["schema", "ids", "references",
+                                                     "orphans", "provenance"]], "all"])
+    def test_every_check_runs_standalone_against_a_valid_package(self, check):
+        r = self._run("--check", check, "--root", str(FIXTURES / "valid"))
+        assert r.returncode == 0, f"--check {check} failed:\n{r.stdout}\n{r.stderr}"
+        assert "Traceback" not in r.stderr
+
+    @pytest.mark.parametrize("check", ["schema", "ids", "references", "orphans",
+                                       "provenance", "all"])
+    def test_every_check_runs_standalone_against_invalid_packages(self, check):
+        """Non-zero exit is the expected outcome here; a crash is not."""
+        r = self._run("--check", check, "--root", str(FIXTURES / "invalid"))
+        assert r.returncode == 1, f"--check {check} should fail:\n{r.stdout}"
+        assert "Traceback" not in r.stderr, f"--check {check} crashed:\n{r.stderr}"
+
+    @pytest.mark.parametrize("module,check", [
+        ("validate_schema", "schema"), ("validate_ids", "ids"),
+        ("validate_references", "references"), ("validate_orphans", "orphans"),
+        ("validate_provenance", "provenance"),
+    ])
+    def test_validator_modules_refuse_to_run_as_clis(self, module, check):
+        """The per-validator runners must stay disabled — each duplicated package
+        discovery with a weaker `p.is_dir()` filter (D-023/H-22's
+        dangling-symlink blindness) and had no empty-run guard. They refuse
+        LOUDLY rather than being deleted outright: simply removing the
+        `__main__` block left these commands exiting 0 in silence, which is
+        worse than the crash M-31 reported, not better."""
+        # nosemgrep: dangerous-subprocess-use-audit -- argv is fully static:
+        # this interpreter plus a repo-relative path from the parametrize list
+        # above. No user or file input reaches it.
+        r = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / f"{module}.py")],
+            capture_output=True, text=True, cwd=REPO_ROOT, check=False,
+        )
+        assert r.returncode != 0, f"{module}.py must not exit 0 when run directly"
+        assert "Traceback" not in r.stderr, f"{module}.py crashed:\n{r.stderr}"
+        assert f"--check {check}" in r.stderr, (
+            f"{module}.py must point at the supported command; got:\n{r.stderr}"
+        )
+
+
+class TestDiscoveryIsGenuinelyImmutable:
+    """Eleventh-pass review M-29: PackageDiscovery was declared
+    `@dataclass(frozen=True)` while holding ordinary mutable lists, and the
+    review demonstrated the gap by calling `.clear()` on a discovery's file
+    list after construction. `frozen=True` prevents field REASSIGNMENT; it
+    does not freeze objects stored in the fields."""
+
+    @pytest.mark.parametrize(
+        "field", ["documents", "internal_symlinks", "traversal_errors"]
+    )
+    def test_collection_fields_are_tuples(self, field):
+        import boe_files
+
+        d = boe_files.discover_package(FIXTURES / "valid" / "harbour-tender-inquiry")
+        value = getattr(d, field)
+        assert isinstance(value, tuple), (
+            f"{field} is {type(value).__name__}, not a tuple — a frozen "
+            f"dataclass holding a mutable list is not immutable"
+        )
+        with pytest.raises(AttributeError):
+            value.clear()
+
+    def test_constructing_with_a_list_is_rejected(self):
+        """A future factory change that produced lists would be caught here
+        rather than silently reintroducing mutable state."""
+        import boe_files
+
+        with pytest.raises(TypeError, match="must be a tuple"):
+            boe_files.PackageDiscovery(
+                root=FIXTURES / "valid" / "harbour-tender-inquiry",
+                documents=[], manifest=None, root_is_symlink=False,
+                internal_symlinks=(), traversal_errors=(),
+            )
+
+    def test_symlinked_root_discovery_must_be_empty(self):
+        """`root_is_symlink=True` means the walk never happened, so a
+        discovery asserting both is internally contradictory."""
+        import boe_files
+
+        real = boe_files.discover_package(FIXTURES / "valid" / "harbour-tender-inquiry")
+        with pytest.raises(ValueError, match="must be"):
+            boe_files.PackageDiscovery(
+                root=real.root, documents=real.documents, manifest=None,
+                root_is_symlink=True, internal_symlinks=(), traversal_errors=(),
+            )
 
 
 def list_dir_is_readable(path: Path) -> bool:

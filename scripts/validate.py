@@ -32,7 +32,7 @@ SCRIPTS_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPTS_DIR.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from boe_files import discover_packages
+from boe_files import Diagnostic, ValidationContext
 from validate_schema import run_schema_validation
 from validate_ids import run_id_validation
 from validate_references import run_reference_validation
@@ -52,27 +52,68 @@ def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool, checks: d
     """
     Run the given checks over the given paths. Returns (all_passed, results).
 
-    Builds ONE PackageDiscovery snapshot (one filesystem walk per package
-    root) and passes it to every check, rather than letting each
-    run_*_validation call discover_packages independently — a whole-CLI-run
-    invocation (the common case: all five checks, or --self-test's per-
-    fixture pass) previously still walked every package once per validator,
-    even though each validator's OWN walk count had already been reduced to
-    one (tenth-pass review CodeRabbit follow-up to D-024/M-24: "one walk per
+    Builds ONE ValidationContext (one filesystem walk and one read of each
+    document per package root) and passes it to every check, rather than
+    letting each run_*_validation build its own — a whole-CLI-run invocation
+    (the common case: all five checks, or --self-test's per-fixture pass)
+    previously still walked every package once per validator, even though
+    each validator's OWN walk count had already been reduced to one
+    (tenth-pass review CodeRabbit follow-up to D-025/M-24: "one walk per
     package" was true per validator call, not true for a full run).
+
+    Sharing the context is also what makes all five checks inspect the same
+    bytes: the context carries each document's bytes, read once, so no
+    validator re-opens a path another validator already read (M-29).
     """
-    discoveries = discover_packages(paths)
+    context = ValidationContext.for_paths(paths)
     results = {}
     all_passed = True
     for check_name, check_fn in checks.items():
-        passed, errors = check_fn(
-            investigation_paths=paths, schema_dir=schema_dir, verbose=verbose,
-            discoveries=discoveries,
-        )
+        passed, errors = check_fn(context=context, schema_dir=schema_dir, verbose=verbose)
         results[check_name] = {"passed": passed, "errors": errors}
         if not passed:
             all_passed = False
     return all_passed, results
+
+
+def validate_paths(paths: list[Path], schema_dir: Path, verbose: bool = False,
+                   checks: dict | None = None,
+                   allow_empty: bool = False) -> tuple[bool, dict]:
+    """
+    **The supported programmatic entry point** — validate these package
+    roots and return (all_passed, results).
+
+    It takes PATHS, plus which `checks` to run and whether an empty run is
+    intentional. It does NOT take validation state: `ValidationContext`,
+    `PackageDiscovery` and `DiscoveredDocument` are internal implementation
+    details built here, and there is no parameter through which a caller
+    could supply one (H-24). An earlier design tried to make that internal
+    state unforgeable with a module-private token, which a reviewer defeated
+    by importing it — Python has no in-process access control, so the trust
+    boundary is drawn at this signature rather than pretended at a lower
+    level. Anything reaching past this into `boe_files` is outside what this
+    project makes integrity claims about, and may change without notice.
+
+    Fails closed on an empty run unless `allow_empty=True` (invariant 10:
+    validation must never be vacuous). `checks` selects which validators
+    run, so an empty selection is an empty run too — a supported API that
+    returned "passed" for validating nothing would reintroduce, at the very
+    boundary this function exists to define, the vacuous pass H-24 reported.
+    """
+    selected = CHECKS if checks is None else checks
+    if not allow_empty and (not paths or not selected):
+        reason = "no package paths" if not paths else "no checks selected"
+        message = (
+            f"Refusing to report success: {reason}. Validating nothing is "
+            f"not a result — pass allow_empty=True if that is intentional."
+        )
+        # A Diagnostic, not a bare string: every other entry in `results`
+        # carries structured errors, and a consumer reading e.code/e.path
+        # would break on this one alone.
+        return False, {"_": {"passed": False, "errors": [
+            Diagnostic("EMPTY_RUN", "validate", "<none>", message)
+        ]}}
+    return run_all_checks(paths, schema_dir, verbose, selected)
 
 
 def print_results(results: dict):

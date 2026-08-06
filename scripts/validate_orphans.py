@@ -17,9 +17,7 @@ from pathlib import Path
 
 from boe_files import (
     Diagnostic,
-    PackageDiscovery,
-    discover_packages,
-    entities_from,
+    ValidationContext,
     preflight_diagnostics,
 )
 
@@ -27,28 +25,27 @@ VALIDATOR = "orphans"
 
 
 def run_orphan_validation(
-    investigation_paths: list[Path],
+    context: ValidationContext,
     schema_dir: Path,
     verbose: bool = False,
-    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
-    """`discoveries`, if provided, is a pre-built list[PackageDiscovery] —
-    pass it when running multiple checks over the same paths (see
-    validate.py's run_all_checks) so the package tree is walked once for
-    the whole run, not once per check. Computed from investigation_paths
-    when omitted, for standalone/direct calls (e.g. tests).
+    """`context` is the single, self-consistent input to this check: it
+    owns both the package roots and the one-walk-one-read discovery of
+    each (eleventh-pass review H-23 — this used to take `investigation_paths`
+    and an optional `discoveries` list with nothing checking they described
+    the same packages, so an empty discovery could silently certify a
+    known-invalid package). Build it once per run with
+    ValidationContext.for_paths and share it across all five checks.
 
-    One walk per package root produces every preflight fact (symlinked
-    root, internal symlink, unreadable subtree) this check must fail
-    closed on, instead of certifying a package it did not completely or
+    Preflight runs first, from that same discovery, so this check fails
+    closed on a symlinked root, an internal symlink, or an unreadable
+    subtree rather than certifying a package it did not completely or
     safely inspect (eighth-pass M-22, tenth-pass M-24/M-27)."""
-    if discoveries is None:
-        discoveries = discover_packages(investigation_paths)
-    all_errors = preflight_diagnostics(discoveries, VALIDATOR)
+    all_errors = preflight_diagnostics(context, VALIDATOR)
     evidence_files = {}       # evidence_id -> path
     linked_evidence = set()   # evidence_ids referenced by at least one link
 
-    entities = list(entities_from(discoveries))
+    entities = list(context.entities())
 
     for path, data in entities:
         if data.get("type") == "evidence" and "id" in data:
@@ -71,14 +68,16 @@ def run_orphan_validation(
     return len(all_errors) == 0, all_errors
 
 
+# This module is not a CLI. `scripts/validate.py` is the only entry point;
+# each of these modules used to carry its own runner that re-implemented
+# package discovery as `p.is_dir()` — weaker than validate.py's
+# `p.is_symlink() or p.is_dir()`, i.e. carrying the exact dangling-symlink
+# blindness D-023/H-22 fixed — and had no empty-run guard, so it could report
+# success having validated nothing. The D-026 signature change left four of
+# them crashing on startup for a whole commit because nothing executed them
+# (D-027/M-31). Refusing loudly beats both a crash and a silent exit 0.
 if __name__ == "__main__":
-    import sys
-    repo_root = Path(__file__).parent.parent
-    inv_paths = [
-        p for p in (repo_root / "investigations").iterdir()
-        if p.is_dir() and not p.name.startswith("_")
-    ]
-    passed, errors = run_orphan_validation(inv_paths, repo_root / "schema", verbose=True)
-    for e in errors:
-        print(f"ERROR: {e}")
-    sys.exit(0 if passed else 1)
+    raise SystemExit(
+        "validate_orphans.py is not a command-line entry point.\n"
+        "Run:  python3 scripts/validate.py --check orphans [--root DIR]"
+    )

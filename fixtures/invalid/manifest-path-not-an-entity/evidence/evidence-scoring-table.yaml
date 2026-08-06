@@ -1,0 +1,11 @@
+# FIXTURE — fictional evidence.
+id: "boe:evidence:01JF0000000000000000000003"
+version_id: "01JFV000000000000000000003"
+type: "evidence"
+source_id: "boe:source:01JF0000000000000000000002"
+description: >
+  The evaluation report's scoring table lists Bidder A with a technical
+  score of 62 and Bidder B with 79.
+quote: "Bidder A: technical 62. Bidder B: technical 79."
+location: "Page 12, Table 4"
+created_at: "2026-08-04T00:00:00Z"
