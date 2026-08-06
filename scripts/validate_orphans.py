@@ -17,9 +17,10 @@ from pathlib import Path
 
 from boe_files import (
     Diagnostic,
-    iter_entities,
-    symlinked_root_diagnostics,
-    traversal_error_diagnostics,
+    PackageDiscovery,
+    discover_packages,
+    entities_from,
+    preflight_diagnostics,
 )
 
 VALIDATOR = "orphans"
@@ -29,17 +30,25 @@ def run_orphan_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
+    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
-    # A symlinked root or an unreadable subtree must not let this check
-    # certify a package it did not completely inspect (eighth-pass review
-    # M-22 follow-up: fail-closed traversal/root-rejection must cover
-    # every validator that walks entity files, not just references).
-    all_errors = symlinked_root_diagnostics(investigation_paths, VALIDATOR)
-    all_errors += traversal_error_diagnostics(investigation_paths, VALIDATOR)
+    """`discoveries`, if provided, is a pre-built list[PackageDiscovery] —
+    pass it when running multiple checks over the same paths (see
+    validate.py's run_all_checks) so the package tree is walked once for
+    the whole run, not once per check. Computed from investigation_paths
+    when omitted, for standalone/direct calls (e.g. tests).
+
+    One walk per package root produces every preflight fact (symlinked
+    root, internal symlink, unreadable subtree) this check must fail
+    closed on, instead of certifying a package it did not completely or
+    safely inspect (eighth-pass M-22, tenth-pass M-24/M-27)."""
+    if discoveries is None:
+        discoveries = discover_packages(investigation_paths)
+    all_errors = preflight_diagnostics(discoveries, VALIDATOR)
     evidence_files = {}       # evidence_id -> path
     linked_evidence = set()   # evidence_ids referenced by at least one link
 
-    entities = list(iter_entities(investigation_paths))
+    entities = list(entities_from(discoveries))
 
     for path, data in entities:
         if data.get("type") == "evidence" and "id" in data:

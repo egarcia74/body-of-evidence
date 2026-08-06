@@ -32,6 +32,7 @@ SCRIPTS_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPTS_DIR.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+from boe_files import discover_packages
 from validate_schema import run_schema_validation
 from validate_ids import run_id_validation
 from validate_references import run_reference_validation
@@ -48,12 +49,25 @@ CHECKS = {
 
 
 def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool, checks: dict) -> tuple[bool, dict]:
-    """Run the given checks over the given paths. Returns (all_passed, results)."""
+    """
+    Run the given checks over the given paths. Returns (all_passed, results).
+
+    Builds ONE PackageDiscovery snapshot (one filesystem walk per package
+    root) and passes it to every check, rather than letting each
+    run_*_validation call discover_packages independently — a whole-CLI-run
+    invocation (the common case: all five checks, or --self-test's per-
+    fixture pass) previously still walked every package once per validator,
+    even though each validator's OWN walk count had already been reduced to
+    one (tenth-pass review CodeRabbit follow-up to D-024/M-24: "one walk per
+    package" was true per validator call, not true for a full run).
+    """
+    discoveries = discover_packages(paths)
     results = {}
     all_passed = True
     for check_name, check_fn in checks.items():
         passed, errors = check_fn(
-            investigation_paths=paths, schema_dir=schema_dir, verbose=verbose
+            investigation_paths=paths, schema_dir=schema_dir, verbose=verbose,
+            discoveries=discoveries,
         )
         results[check_name] = {"passed": passed, "errors": errors}
         if not passed:

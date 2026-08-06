@@ -38,11 +38,12 @@ from pathlib import Path
 
 from boe_files import (
     Diagnostic,
-    find_all_symlinks,
+    PackageDiscovery,
+    discover_packages,
+    entities_from,
     find_manifest,
-    iter_entities,
     load_yaml,
-    traversal_error_diagnostics,
+    preflight_diagnostics,
 )
 
 VALIDATOR = "references"
@@ -321,7 +322,7 @@ def _resolved_containment_error(inv_path: Path, path_str: str) -> tuple[str, str
     """
     Two independent checks, both enforced (fourth-pass review M-11), for
     MANIFEST-LISTED paths specifically (unmanifested-file / non-YAML /
-    directory symlinks are caught separately — see boe_files.find_all_symlinks
+    directory symlinks are caught separately — see boe_files.preflight_diagnostics
     and H-19/M-20 below):
 
     1. No path component between the package root and the entity file may
@@ -596,46 +597,27 @@ def run_reference_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
+    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
-    all_errors = []
+    """`discoveries`, if provided, is a pre-built list[PackageDiscovery] —
+    pass it when running multiple checks over the same paths (see
+    validate.py's run_all_checks) so the package tree is walked once for
+    the whole run, not once per check. Computed from investigation_paths
+    when omitted, for standalone/direct calls (e.g. tests).
 
-    # A symlinked package root is rejected outright, before any file
-    # discovery (fifth-pass review H-15).
-    real_investigation_paths = []
-    for inv_path in investigation_paths:
-        if inv_path.is_symlink():
-            all_errors.append(_err(
-                "INVESTIGATION_ROOT_SYMLINK", inv_path,
-                f"{inv_path}: package root is a symlink — symlinked package "
-                f"roots are prohibited (they can point anywhere on disk, "
-                f"bypassing every per-path containment check)"
-            ))
-            continue
-        real_investigation_paths.append(inv_path)
-
-    # ANY symlink anywhere inside a package is rejected outright — a file,
-    # a directory, any extension, manifested or not (sixth-pass H-19,
-    # broadened by seventh-pass M-20: the narrower YAML-only scan missed
-    # symlinked subdirectories and non-YAML symlinks). boe_files already
-    # refuses to read through these; this reports the precise cause instead
-    # of the package silently appearing to have fewer entries than it does.
-    for symlinked in find_all_symlinks(real_investigation_paths):
-        all_errors.append(_err(
-            "PACKAGE_SYMLINK", symlinked,
-            f"{symlinked}: symlink found inside a package — symlinks are "
-            f"prohibited anywhere in a package, including unmanifested "
-            f"historical versions, subdirectories, and non-YAML files "
-            f"(they can indirect to content outside the package, or crash "
-            f"validation if broken)"
-        ))
-
-    # A subtree os.walk could not list (e.g. permission denied) is fail-
-    # closed, not silently skipped (eighth-pass review M-22): a package
-    # cannot be certified when part of it was never actually inspected —
-    # an unreadable directory could just as easily be hiding a prohibited
-    # symlink or a policy-violating entity file. Every validator does this
-    # (see boe_files.traversal_error_diagnostics), not just this one.
-    all_errors.extend(traversal_error_diagnostics(real_investigation_paths, VALIDATOR))
+    One walk per package root produces every preflight fact — symlinked
+    root, internal symlink (any file, directory, extension, manifested or
+    not: sixth-pass H-19, broadened by seventh-pass M-20), and unreadable
+    subtree (eighth-pass M-22) — instead of three independent walks
+    (tenth-pass review M-24), and this validator no longer has to be the
+    only one that rejects internal symlinks (tenth-pass review M-27: the
+    other four standalone checks previously omitted them silently via
+    find_entity_files, exactly the same vacuous-pass failure class as
+    M-22/H-22). See boe_files.preflight_diagnostics."""
+    if discoveries is None:
+        discoveries = discover_packages(investigation_paths)
+    all_errors = preflight_diagnostics(discoveries, VALIDATOR)
+    real_investigation_paths = [d.root for d in discoveries if not d.root_is_symlink]
 
     # Pass 1: index all defined IDs and versions. id_index is a MULTIMAP —
     # a stable id can legitimately appear in more than one file (D-009
@@ -643,7 +625,7 @@ def run_reference_validation(
     # information a reference check needs (sixth-pass review H-17).
     id_index: dict[str, list[dict]] = {}
     version_index = {}
-    entities = list(iter_entities(real_investigation_paths))
+    entities = list(entities_from(discoveries))
     for path, data in entities:
         package = _owning_package(path, real_investigation_paths)
         if "id" in data:
