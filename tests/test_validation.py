@@ -270,10 +270,19 @@ class TestInvalidFixtures:
                 # A tracked symlink AT the package-directory level (not an
                 # entity path inside one) — fifth-pass review H-15. Every
                 # validator refuses to descend into it (boe_files skips a
-                # symlinked root entirely); references reports the precise
-                # root cause, schema reports the resulting empty run.
+                # symlinked root entirely) AND now reports it explicitly,
+                # each under its own validator name (PR #13 review
+                # follow-up to eighth-pass M-22: a validator that only saw
+                # zero files for a symlinked root used to pass vacuously
+                # instead of explaining why — schema was the sole
+                # exception, via its pre-existing SCHEMA_VACUOUS_RUN
+                # fallback, which no longer fires now that all_errors is
+                # non-empty before that check runs).
+                ("schema", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
+                ("ids", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
                 ("references", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
-                ("schema", "SCHEMA_VACUOUS_RUN", "<repo>", ""),
+                ("orphans", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
+                ("provenance", "INVESTIGATION_ROOT_SYMLINK", "fixtures/invalid/investigation-root-symlink", ""),
             ]),
             ("unmanifested-symlink", [
                 # sixth-pass review H-19: a symlinked entity file that is
@@ -345,7 +354,8 @@ class TestCrossPackageReferences:
     def test_revision_cannot_claim_version_from_another_package(self):
         pkg_a = FIXTURES / "cross_package" / "pkg-a"
         pkg_b = FIXTURES / "cross_package" / "pkg-b"
-        assert pkg_a.exists() and pkg_b.exists(), "Missing cross_package fixtures"
+        assert pkg_a.exists(), "Missing cross_package fixture pkg-a"
+        assert pkg_b.exists(), "Missing cross_package fixture pkg-b"
 
         passed, errors = run_reference_validation(
             investigation_paths=[pkg_a, pkg_b], schema_dir=SCHEMA_DIR, verbose=False
@@ -528,7 +538,10 @@ class TestReferenceRegistryCompleteness:
         (the field is LISTED) is not the same guarantee as correctness
         (the field is CHECKED). This constructs a synthetic dangling
         reference for every REFERENCE_FIELDS and NESTED_REFERENCE_FIELDS
-        entry and asserts each one actually produces REF_NOT_FOUND."""
+        entry and asserts each one actually produces EXACTLY REF_NOT_FOUND
+        — an exact list, not membership (L-07, eighth-pass review: a
+        membership assertion would miss an extra or duplicated diagnostic
+        the registry entry also happened to produce)."""
         import validate_references as vr
 
         FAKE_ID = "boe:nonexistent:01JF0000000000000000000000"
@@ -539,12 +552,12 @@ class TestReferenceRegistryCompleteness:
                 errors = vr.validate_references_in_file(
                     Path(f"synthetic-{entity_type}.yaml"), data, id_index={}, entity_package=None
                 )
-                codes = [(e.code, e.location) for e in errors]
+                codes = sorted((e.code, e.location) for e in errors)
                 expected_location = f"{field}[0]" if is_list else field
-                assert ("REF_NOT_FOUND", expected_location) in codes, (
+                assert codes == [("REF_NOT_FOUND", expected_location)], (
                     f"{entity_type}.{field}: registered but a dangling value "
-                    f"produced no REF_NOT_FOUND (got {codes}) — this registry "
-                    f"entry is not actually executed"
+                    f"produced {codes}, expected exactly one REF_NOT_FOUND — "
+                    f"this registry entry is not actually executed"
                 )
 
         for entity_type, nested_fields in vr.NESTED_REFERENCE_FIELDS.items():
@@ -553,12 +566,70 @@ class TestReferenceRegistryCompleteness:
                 errors = vr.validate_references_in_file(
                     Path(f"synthetic-{entity_type}.yaml"), data, id_index={}, entity_package=None
                 )
-                codes = [(e.code, e.location) for e in errors]
+                codes = sorted((e.code, e.location) for e in errors)
                 expected_location = f"{array_field}[0].{item_field}"
-                assert ("REF_NOT_FOUND", expected_location) in codes, (
-                    f"{entity_type}.{array_field}[].{item_field}: registered but "
-                    f"a dangling value produced no REF_NOT_FOUND (got {codes}) — "
-                    f"this nested registry entry is not actually executed"
+                assert codes == [("REF_NOT_FOUND", expected_location)], (
+                    f"{entity_type}.{array_field}[].{item_field}: registered "
+                    f"but a dangling value produced {codes}, expected exactly "
+                    f"one REF_NOT_FOUND — this nested registry entry is not "
+                    f"actually executed"
+                )
+
+    def test_every_registered_field_enforces_currency_when_historical(self):
+        """L-07 (eighth-pass review): the dangling-reference test above
+        proves every registered field is CHECKED, but only exercises
+        REF_NOT_FOUND — none of the 32 registered locations were ever
+        parameterized to prove REF_NOT_CURRENT (H-20/H-21) actually fires
+        for each of them individually. This constructs, for every flat and
+        nested registry entry, a reference that resolves to an EXISTING
+        file in the right package and type but is NOT the manifest's
+        current version — and asserts EXACTLY one REF_NOT_CURRENT."""
+        import validate_references as vr
+
+        pkg = Path("synthetic-pkg")
+        self_id = "boe:synthetic-self:01JF00000000000000000SELF"
+        self_version = "01JFV00000000000000000SELF"
+        current_maps = {pkg: {self_id: self_version}}  # target id deliberately absent
+
+        def _target_id(want_type):
+            return f"boe:{want_type or 'synthetic-target'}:01JF000000000000000000TRGT"
+
+        for entity_type, fields in vr.REFERENCE_FIELDS.items():
+            for field, is_list, want_type in fields:
+                target_id = _target_id(want_type)
+                id_index = {target_id: [{"path": Path("target.yaml"), "package": pkg}]}
+                data = {
+                    "type": entity_type, "id": self_id, "version_id": self_version,
+                    field: [target_id] if is_list else target_id,
+                }
+                errors = vr.validate_references_in_file(
+                    Path("synthetic.yaml"), data, id_index, entity_package=pkg, current_maps=current_maps
+                )
+                codes = sorted((e.code, e.location) for e in errors)
+                expected_location = f"{field}[0]" if is_list else field
+                assert codes == [("REF_NOT_CURRENT", expected_location)], (
+                    f"{entity_type}.{field}: a reference to an existing but "
+                    f"non-current target produced {codes}, expected exactly "
+                    f"one REF_NOT_CURRENT"
+                )
+
+        for entity_type, nested_fields in vr.NESTED_REFERENCE_FIELDS.items():
+            for array_field, item_field, want_type in nested_fields:
+                target_id = _target_id(want_type)
+                id_index = {target_id: [{"path": Path("target.yaml"), "package": pkg}]}
+                data = {
+                    "type": entity_type, "id": self_id, "version_id": self_version,
+                    array_field: [{item_field: target_id}],
+                }
+                errors = vr.validate_references_in_file(
+                    Path("synthetic.yaml"), data, id_index, entity_package=pkg, current_maps=current_maps
+                )
+                codes = sorted((e.code, e.location) for e in errors)
+                expected_location = f"{array_field}[0].{item_field}"
+                assert codes == [("REF_NOT_CURRENT", expected_location)], (
+                    f"{entity_type}.{array_field}[].{item_field}: a reference "
+                    f"to an existing but non-current target produced {codes}, "
+                    f"expected exactly one REF_NOT_CURRENT"
                 )
 
 
@@ -582,6 +653,126 @@ class TestManifestCurrencyRequired:
         not_current = [e for e in errors if e.code == "REF_NOT_CURRENT"]
         assert not not_current, f"Valid fixture's current references were rejected: {not_current}"
         assert passed, f"Valid fixture unexpectedly failed references: {[str(e) for e in errors]}"
+
+
+class TestHistoricalReferencesRemainValid:
+    """H-21 (eighth-pass review): H-20's currency rule is about the CURRENT
+    released graph — it must not be imposed on a reference made BY a
+    historical/superseded entity version. A historical ClaimEvidenceLink
+    describing what it referenced at that point in time must remain valid
+    even after the referenced entity is later retired entirely; otherwise
+    valid history becomes impossible to keep. Historical files still get
+    ordinary existence/type/package checks — only the "target must be
+    current" rule is exempted."""
+
+    def _write(self, path: Path, **fields):
+        path.write_text(yaml.safe_dump(fields, sort_keys=False))
+
+    def test_historical_link_referencing_retired_evidence_is_not_rejected(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+
+        self._write(
+            pkg / "investigation.yaml",
+            id="boe:investigation:01JF00000000000000000A0001",
+            version_id="01JFV0000000000000000A0001",
+            type="investigation",
+        )
+        self._write(
+            pkg / "claim.yaml",
+            id="boe:claim:01JF00000000000000000A0002",
+            version_id="01JFV0000000000000000A0002",
+            type="claim",
+        )
+        # Retired: exists on disk (D-009 historical version) but NOT listed
+        # in the manifest — exactly the unmanifested-by-design case H-20
+        # was written to catch when the REFERENCE is current.
+        self._write(
+            pkg / "evidence-retired.yaml",
+            id="boe:evidence:01JF00000000000000000A0003",
+            version_id="01JFV0000000000000000A0003",
+            type="evidence",
+        )
+        # Historical: also unmanifested. References the retired evidence —
+        # this is the probe the review demonstrated failing.
+        self._write(
+            pkg / "link-historical.yaml",
+            id="boe:claim_evidence_link:01JF00000000000000000A0004",
+            version_id="01JFV0000000000000000A0004",
+            type="claim_evidence_link",
+            claim_id="boe:claim:01JF00000000000000000A0002",
+            evidence_id="boe:evidence:01JF00000000000000000A0003",
+        )
+        self._write(
+            pkg / "package.yaml",
+            manifest_version="1",
+            investigation_id="boe:investigation:01JF00000000000000000A0001",
+            slug="pkg",
+            entities=[
+                {"id": "boe:investigation:01JF00000000000000000A0001",
+                 "version_id": "01JFV0000000000000000A0001", "path": "investigation.yaml"},
+                {"id": "boe:claim:01JF00000000000000000A0002",
+                 "version_id": "01JFV0000000000000000A0002", "path": "claim.yaml"},
+            ],
+        )
+
+        passed, errors = run_reference_validation(
+            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+        )
+        not_current = [e for e in errors if e.code == "REF_NOT_CURRENT"]
+        assert not not_current, (
+            f"A historical link's reference to a retired entity must not be "
+            f"held to current-manifest membership: {[str(e) for e in not_current]}"
+        )
+        assert passed, f"Historical reference unexpectedly failed: {[str(e) for e in errors]}"
+
+    def test_historical_file_referencing_something_nonexistent_still_fails(self, tmp_path):
+        """A historical referencing file is exempt from REF_NOT_CURRENT, not
+        from every check — a dangling reference must still be REF_NOT_FOUND
+        even when it originates from a historical file."""
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+
+        self._write(
+            pkg / "investigation.yaml",
+            id="boe:investigation:01JF00000000000000000B0001",
+            version_id="01JFV0000000000000000B0001",
+            type="investigation",
+        )
+        self._write(
+            pkg / "claim.yaml",
+            id="boe:claim:01JF00000000000000000B0002",
+            version_id="01JFV0000000000000000B0002",
+            type="claim",
+        )
+        self._write(
+            pkg / "link-historical.yaml",
+            id="boe:claim_evidence_link:01JF00000000000000000B0003",
+            version_id="01JFV0000000000000000B0003",
+            type="claim_evidence_link",
+            claim_id="boe:claim:01JF00000000000000000B0002",
+            evidence_id="boe:evidence:01JF00000000000000000B9999",  # never existed
+        )
+        self._write(
+            pkg / "package.yaml",
+            manifest_version="1",
+            investigation_id="boe:investigation:01JF00000000000000000B0001",
+            slug="pkg",
+            entities=[
+                {"id": "boe:investigation:01JF00000000000000000B0001",
+                 "version_id": "01JFV0000000000000000B0001", "path": "investigation.yaml"},
+                {"id": "boe:claim:01JF00000000000000000B0002",
+                 "version_id": "01JFV0000000000000000B0002", "path": "claim.yaml"},
+            ],
+        )
+
+        passed, errors = run_reference_validation(
+            investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+        )
+        assert not passed
+        assert any(e.code == "REF_NOT_FOUND" for e in errors), (
+            f"A historical file's dangling reference must still be REF_NOT_FOUND: {[str(e) for e in errors]}"
+        )
 
 
 class TestSymlinkedPackageRoot:
@@ -645,7 +836,8 @@ class TestUnmanifestedEntitySymlinks:
         import boe_files
         pkg = FIXTURES / "invalid" / "broken-unmanifested-symlink"
         broken = pkg / "claim-broken-symlink.yaml"
-        assert broken.is_symlink() and not broken.exists(), "Fixture symlink must be dangling"
+        assert broken.is_symlink(), "Fixture must be a symlink"
+        assert not broken.exists(), "Fixture symlink must be dangling"
         # Must not raise:
         files = boe_files.find_entity_files([pkg])
         assert broken not in files
@@ -659,7 +851,8 @@ class TestUnmanifestedEntitySymlinks:
         broken = FIXTURES / "invalid" / "broken-unmanifested-symlink" / "claim-broken-symlink.yaml"
         data, error = boe_files.load_yaml(broken)
         assert data is None
-        assert error is not None and "could not read file" in error.lower()
+        assert error is not None
+        assert "could not read file" in error.lower()
 
 
 class TestCliMultiPackageDiscovery:
@@ -716,6 +909,24 @@ class TestCliMultiPackageDiscovery:
             f"Expected a symlink diagnostic in CLI output, got:\n{result.stdout}"
         )
 
+    def test_cli_rejects_dangling_symlinked_sibling_package(self, tmp_path):
+        """H-22 (eighth-pass review): a DANGLING package-root symlink fails
+        is_dir() and was previously invisible to default CLI discovery
+        entirely — silently excluded before the symlink validator ever ran,
+        rather than rejected like the live-symlink case above. Whether a
+        symlink is dangling is environment-dependent (it could resolve to
+        real, sensitive content elsewhere), so passing CI must not depend
+        on it happening to be broken here."""
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", tmp_path / "harbour-tender-inquiry")
+        (tmp_path / "dangling-alias").symlink_to(tmp_path / "_does-not-exist", target_is_directory=True)
+        result = self._run_cli(tmp_path)
+        assert result.returncode != 0, (
+            f"CLI silently accepted a dangling package-root symlink under --root:\n{result.stdout}"
+        )
+        assert "symlink" in result.stdout.lower(), (
+            f"Expected a symlink diagnostic in CLI output, got:\n{result.stdout}"
+        )
+
     def test_cli_rejects_nonexistent_root_with_diagnostic_not_traceback(self, tmp_path):
         """M-18 (sixth-pass review): a nonexistent --root previously reached
         iterdir() unguarded and crashed with an uncaught FileNotFoundError."""
@@ -756,10 +967,155 @@ class TestCliMultiPackageDiscovery:
         (unreadable / "harbour-tender-inquiry").mkdir()
         unreadable.chmod(0o000)
         try:
+            # L-08 (eighth-pass review): skipping whenever the CLI returns 0
+            # is the wrong test for "did permissions actually block
+            # enumeration" — in a privileged environment enumeration can
+            # succeed while some LATER check still returns non-zero for an
+            # unrelated reason, which would make this test fail for the
+            # wrong reason instead of skipping. Check the local filesystem
+            # operation directly first; only invoke the CLI (and assert on
+            # its diagnostic) once we know PermissionError actually fires
+            # here.
+            try:
+                list(unreadable.iterdir())
+            except PermissionError:
+                pass
+            else:
+                pytest.skip("Directory permissions did not block enumeration in this environment (e.g. running as root)")
             result = self._run_cli(unreadable)
         finally:
             unreadable.chmod(0o755)  # restore so pytest can clean up tmp_path
-        if result.returncode == 0:
-            pytest.skip("Directory permissions did not block enumeration in this environment (e.g. running as root)")
         assert "Traceback" not in result.stderr, f"CLI crashed instead of reporting a diagnostic:\n{result.stderr}"
         assert "could not enumerate" in result.stdout.lower()
+
+
+class TestUnreadableSubtreeFailsClosed:
+    """M-22 (eighth-pass review): os.walk without an `onerror` callback
+    silently skips any subdirectory it cannot list — a package containing
+    an unreadable subtree (which could just as easily be hiding a
+    prohibited symlink or a policy-violating entity file) was certified as
+    clean without ever having been fully inspected."""
+
+    def test_find_all_symlinks_reports_unreadable_subtree_as_error_not_silence(self, tmp_path):
+        import boe_files
+        pkg = tmp_path / "pkg"
+        locked = pkg / "locked"
+        locked.mkdir(parents=True)
+        (locked / "hidden-symlink.yaml").symlink_to(
+            FIXTURES / "valid" / "harbour-tender-inquiry" / "investigation.yaml"
+        )
+        locked.chmod(0o000)
+        try:
+            if list_dir_is_readable(locked):
+                pytest.skip("Directory permissions did not block traversal in this environment (e.g. running as root)")
+            symlinks = boe_files.find_all_symlinks([pkg])
+            errors = boe_files.find_traversal_errors([pkg])
+        finally:
+            locked.chmod(0o755)  # restore so pytest can clean up tmp_path
+
+        assert symlinks == [], (
+            f"A symlink inside an unreadable directory cannot be seen "
+            f"directly by definition, got: {symlinks}"
+        )
+        assert len(errors) == 1, f"Expected exactly one traversal error, got: {errors}"
+        assert errors[0][0] == pkg
+
+    def test_run_reference_validation_fails_closed_on_unreadable_subtree(self, tmp_path):
+        pkg = tmp_path / "pkg"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
+        locked = pkg / "locked-subdir"
+        locked.mkdir()
+        locked.chmod(0o000)
+        try:
+            if list_dir_is_readable(locked):
+                pytest.skip("Directory permissions did not block traversal in this environment (e.g. running as root)")
+            passed, errors = run_reference_validation(
+                investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False
+            )
+        finally:
+            locked.chmod(0o755)  # restore so pytest can clean up tmp_path
+
+        assert not passed, "An unreadable subtree must fail validation, not silently pass"
+        assert any(e.code == "PACKAGE_SUBTREE_UNREADABLE" for e in errors), (
+            f"Expected a PACKAGE_SUBTREE_UNREADABLE diagnostic, got: {[str(e) for e in errors]}"
+        )
+
+    @pytest.mark.parametrize("check_fn", ALL_CHECKS, ids=lambda f: f.__module__)
+    def test_every_single_check_fails_closed_on_unreadable_subtree(self, tmp_path, check_fn):
+        """Follow-up finding (automated review, post-M-22): the initial fix
+        only wired find_traversal_errors into run_reference_validation. A
+        standalone invocation of any OTHER check — e.g. `--check schema` —
+        still walked entity files via find_entity_files/iter_entities,
+        which silently omits an unreadable subtree the same way
+        find_all_symlinks did, and so could certify an incompletely-
+        inspected package on its own. Every run_*_validation function must
+        independently fail closed, not just references — this proves it
+        for all five."""
+        # Named to match the fixture's manifest slug — an arbitrary
+        # destination name (as the looser test above uses) would also
+        # legitimately produce MANIFEST_SLUG_MISMATCH, which this test's
+        # exact assertion must not have to account for.
+        pkg = tmp_path / "harbour-tender-inquiry"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
+        locked = pkg / "locked-subdir"
+        locked.mkdir()
+        locked.chmod(0o000)
+        try:
+            if list_dir_is_readable(locked):
+                pytest.skip("Directory permissions did not block traversal in this environment (e.g. running as root)")
+            passed, errors = check_fn(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
+        finally:
+            locked.chmod(0o755)  # restore so pytest can clean up tmp_path
+
+        assert not passed, (
+            f"{check_fn.__module__}: an unreadable subtree must fail this "
+            f"check on its own, not silently pass"
+        )
+        # Exact (validator, code, path, location) tuples — the same shape
+        # TestInvalidFixtures uses — not just membership, so an extra or
+        # duplicated diagnostic would be caught too (CodeRabbit finding).
+        actual = sorted((e.validator, e.code, e.path, e.location) for e in errors)
+        expected_validator = check_fn.__module__.replace("validate_", "", 1)
+        assert actual == [(expected_validator, "PACKAGE_SUBTREE_UNREADABLE", str(locked), "")], (
+            f"{check_fn.__module__}: expected exactly one "
+            f"PACKAGE_SUBTREE_UNREADABLE diagnostic under its own validator "
+            f"name, got: {actual}"
+        )
+
+    @pytest.mark.parametrize("check_fn", ALL_CHECKS, ids=lambda f: f.__module__)
+    def test_every_single_check_fails_closed_on_symlinked_root(self, tmp_path, check_fn):
+        """Same class of gap as the unreadable-subtree test above, but at
+        the package ROOT rather than a subtree: find_entity_files silently
+        skips a symlinked investigation root entirely (by design), so a
+        validator that only calls find_entity_files/iter_entities saw zero
+        files for that path and passed VACUOUSLY — only references had its
+        own INVESTIGATION_ROOT_SYMLINK check. This proves the other four
+        now reject it too, each under its own validator name."""
+        real_target = tmp_path / "_outside"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", real_target)
+        symlinked_root = tmp_path / "alias"
+        symlinked_root.symlink_to(real_target, target_is_directory=True)
+
+        passed, errors = check_fn(investigation_paths=[symlinked_root], schema_dir=SCHEMA_DIR, verbose=False)
+
+        assert not passed, (
+            f"{check_fn.__module__}: a symlinked package root must fail this "
+            f"check on its own, not silently pass"
+        )
+        actual = sorted((e.validator, e.code, e.path, e.location) for e in errors)
+        expected_validator = check_fn.__module__.replace("validate_", "", 1)
+        assert actual == [(expected_validator, "INVESTIGATION_ROOT_SYMLINK", str(symlinked_root), "")], (
+            f"{check_fn.__module__}: expected exactly one "
+            f"INVESTIGATION_ROOT_SYMLINK diagnostic under its own validator "
+            f"name, got: {actual}"
+        )
+
+
+def list_dir_is_readable(path: Path) -> bool:
+    """True if listing `path` succeeds despite an attempted chmod(0o000) —
+    e.g. when the test runs as root, where permission bits don't apply."""
+    try:
+        list(path.iterdir())
+    except PermissionError:
+        return False
+    return True

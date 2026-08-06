@@ -12,9 +12,13 @@ Checks that Source entities have complete provenance and byte-level fixity:
 """
 
 from pathlib import Path
-from typing import Tuple, List
 
-from boe_files import Diagnostic, iter_entities
+from boe_files import (
+    Diagnostic,
+    iter_entities,
+    symlinked_root_diagnostics,
+    traversal_error_diagnostics,
+)
 
 VALIDATOR = "provenance"
 
@@ -77,8 +81,13 @@ def run_provenance_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[Diagnostic]]:
-    all_errors = []
+) -> tuple[bool, list[Diagnostic]]:
+    # A symlinked root or an unreadable subtree must not let this check
+    # certify a package it did not completely inspect (eighth-pass review
+    # M-22 follow-up: fail-closed traversal/root-rejection must cover
+    # every validator that walks entity files, not just references).
+    all_errors = symlinked_root_diagnostics(investigation_paths, VALIDATOR)
+    all_errors += traversal_error_diagnostics(investigation_paths, VALIDATOR)
     for yaml_file, data in iter_entities(investigation_paths):
         if data.get("type") != "source":
             continue
