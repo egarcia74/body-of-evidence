@@ -245,26 +245,38 @@ class TestInvalidFixtures:
                 ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-no-investigation/package.yaml", ""),
             ]),
             ("manifest-symlink-escape", [
-                # Three diagnostics, all root-cause-adjacent to the same
-                # tracked symlink, all declared explicitly rather than
-                # picking one and hiding the rest:
+                # Root-cause-adjacent diagnostics for the same tracked
+                # symlink, all declared explicitly rather than picking one
+                # and hiding the rest:
                 # - MANIFEST_PATH_SYMLINK: the manifest-listed path check
                 #   (fourth-pass M-11) catches it as a LISTED entry.
+                #   references-only — manifest-path validation only exists
+                #   in validate_references.py.
                 # - PACKAGE_SYMLINK: sixth-pass H-19's unconditional
                 #   discovery-level check ALSO independently catches it —
                 #   this is deliberately redundant with the check above;
                 #   H-19 exists specifically because a symlinked file might
                 #   NOT be manifest-listed (see investigation-root-symlink
                 #   for the package-root case, and the H-19 fixtures below
-                #   for the unmanifested case).
+                #   for the unmanifested case). Reported by ALL FIVE
+                #   standalone validators (tenth-pass review M-27 — every
+                #   check shares one boe_files.preflight_diagnostics call,
+                #   not just references), same pattern as
+                #   investigation-root-symlink below.
                 # - MANIFEST_NO_INVESTIGATION: derived/cascading — the
                 #   manifest's only Investigation entry is the rejected
                 #   symlinked path, so the manifest also has no accepted
                 #   Investigation (the case the fourth-pass review flagged
                 #   as silently tolerated by the old substring-only test).
-                ("references", "PACKAGE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
+                #   references-only — manifest-content validation only
+                #   exists in validate_references.py.
+                ("ids", "PACKAGE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
+                ("orphans", "PACKAGE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
+                ("provenance", "PACKAGE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
                 ("references", "MANIFEST_NO_INVESTIGATION", "fixtures/invalid/manifest-symlink-escape/package.yaml", ""),
                 ("references", "MANIFEST_PATH_SYMLINK", "fixtures/invalid/manifest-symlink-escape/package.yaml", "escape.yaml"),
+                ("references", "PACKAGE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
+                ("schema", "PACKAGE_SYMLINK", "fixtures/invalid/manifest-symlink-escape/escape.yaml", ""),
             ]),
             ("investigation-root-symlink", [
                 # A tracked symlink AT the package-directory level (not an
@@ -291,15 +303,34 @@ class TestInvalidFixtures:
                 # The manifest-path containment check can't see this by
                 # construction — it only inspects listed paths — which is
                 # exactly why H-19 required an unconditional discovery-level
-                # check independent of the manifest.
+                # check independent of the manifest. Reported by ALL FIVE
+                # standalone validators (tenth-pass review M-27), not just
+                # references — see manifest-symlink-escape above.
+                ("ids", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/unmanifested-symlink/claim-unlisted-symlink.yaml", ""),
+                ("orphans", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/unmanifested-symlink/claim-unlisted-symlink.yaml", ""),
+                ("provenance", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/unmanifested-symlink/claim-unlisted-symlink.yaml", ""),
                 ("references", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/unmanifested-symlink/claim-unlisted-symlink.yaml", ""),
+                ("schema", "PACKAGE_SYMLINK",
                  "fixtures/invalid/unmanifested-symlink/claim-unlisted-symlink.yaml", ""),
             ]),
             ("broken-unmanifested-symlink", [
                 # Same as above, but the symlink target doesn't exist. Must
                 # produce this diagnostic, not an uncaught FileNotFoundError
-                # crashing the whole run (sixth-pass review H-19).
+                # crashing the whole run (sixth-pass review H-19). Reported
+                # by all five standalone validators (tenth-pass M-27).
+                ("ids", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml", ""),
+                ("orphans", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml", ""),
+                ("provenance", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml", ""),
                 ("references", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml", ""),
+                ("schema", "PACKAGE_SYMLINK",
                  "fixtures/invalid/broken-unmanifested-symlink/claim-broken-symlink.yaml", ""),
             ]),
             ("symlinked-subdirectory", [
@@ -309,11 +340,20 @@ class TestInvalidFixtures:
                 # invisible to it — rglob doesn't currently follow a
                 # symlinked directory in this pathlib version, so nothing
                 # inside it is actually read, but the symlink itself went
-                # completely undetected. find_all_symlinks walks with
+                # completely undetected. boe_files walks with
                 # os.walk(followlinks=False), which lists but never
                 # descends into it, so the symlink is now reported without
-                # ever reading through it.
+                # ever reading through it — by all five standalone
+                # validators (tenth-pass review M-27).
+                ("ids", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/symlinked-subdirectory/aliased-claims", ""),
+                ("orphans", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/symlinked-subdirectory/aliased-claims", ""),
+                ("provenance", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/symlinked-subdirectory/aliased-claims", ""),
                 ("references", "PACKAGE_SYMLINK",
+                 "fixtures/invalid/symlinked-subdirectory/aliased-claims", ""),
+                ("schema", "PACKAGE_SYMLINK",
                  "fixtures/invalid/symlinked-subdirectory/aliased-claims", ""),
             ]),
             ("reference-not-current", [
@@ -575,15 +615,25 @@ class TestReferenceRegistryCompleteness:
                     f"actually executed"
                 )
 
-    def test_every_registered_field_enforces_currency_when_historical(self):
+    def test_every_registered_field_enforces_currency_when_source_is_current(self):
         """L-07 (eighth-pass review): the dangling-reference test above
         proves every registered field is CHECKED, but only exercises
         REF_NOT_FOUND — none of the 32 registered locations were ever
-        parameterized to prove REF_NOT_CURRENT (H-20/H-21) actually fires
-        for each of them individually. This constructs, for every flat and
-        nested registry entry, a reference that resolves to an EXISTING
-        file in the right package and type but is NOT the manifest's
-        current version — and asserts EXACTLY one REF_NOT_CURRENT."""
+        parameterized to prove REF_NOT_CURRENT (H-20) actually fires for
+        each of them individually. This constructs, for every flat and
+        nested registry entry, a CURRENT referencing entity (its own id and
+        version_id ARE in current_maps) pointing at a reference that
+        resolves to an EXISTING file in the right package and type but is
+        NOT the manifest's current version — and asserts EXACTLY one
+        REF_NOT_CURRENT.
+
+        Renamed from `..._when_historical` (tenth-pass review M-28): the
+        original name and docstring claimed this proved the H-21 historical
+        exemption across all 32 locations. It does not — `self_id` is
+        present in `current_maps`, so `referencing_is_current` is True
+        throughout, meaning this test exercises ONLY the current-source
+        case. See `test_every_registered_field_exempts_historical_source_from_currency`
+        below for the actual historical-source coverage."""
         import validate_references as vr
 
         pkg = Path("synthetic-pkg")
@@ -630,6 +680,76 @@ class TestReferenceRegistryCompleteness:
                     f"{entity_type}.{array_field}[].{item_field}: a reference "
                     f"to an existing but non-current target produced {codes}, "
                     f"expected exactly one REF_NOT_CURRENT"
+                )
+
+    def test_every_registered_field_exempts_historical_source_from_currency(self):
+        """M-28 (tenth-pass review): the H-21 historical-reference exemption
+        (D-023) is proven end-to-end for exactly two hand-picked cases by
+        TestHistoricalReferencesRemainValid, but was never parameterized
+        across all 32 registered flat and nested reference locations the
+        way REF_NOT_FOUND and current-source REF_NOT_CURRENT are above. A
+        previous version of this test claimed to provide that coverage; it
+        did not (see the renamed test above) — its `self_id` was present in
+        `current_maps`, so every field it exercised had a CURRENT
+        referencing entity, never a historical one.
+
+        This constructs, for every flat and nested registry entry, a
+        HISTORICAL referencing entity — `self_id`/`self_version` are
+        deliberately ABSENT from `current_maps`, so
+        `validate_references_in_file` computes `referencing_is_current =
+        False` — pointing at a reference that resolves to an EXISTING file
+        in the right package and type but is NOT the manifest's current
+        version. Per D-023/H-21, a historical source is exempt from
+        currency: asserts NO REF_NOT_CURRENT (or any other diagnostic) is
+        produced for that field, for every one of the 32 locations."""
+        import validate_references as vr
+
+        pkg = Path("synthetic-pkg")
+        self_id = "boe:synthetic-self:01JF00000000000000000SELF"
+        self_version = "01JFV00000000000000000SELF"
+        # self_id deliberately ABSENT from current_maps — this is what
+        # makes the referencing entity historical, not current.
+        current_maps = {pkg: {}}
+
+        def _target_id(want_type):
+            return f"boe:{want_type or 'synthetic-target'}:01JF000000000000000000TRGT"
+
+        for entity_type, fields in vr.REFERENCE_FIELDS.items():
+            for field, is_list, want_type in fields:
+                target_id = _target_id(want_type)
+                id_index = {target_id: [{"path": Path("target.yaml"), "package": pkg}]}
+                data = {
+                    "type": entity_type, "id": self_id, "version_id": self_version,
+                    field: [target_id] if is_list else target_id,
+                }
+                errors = vr.validate_references_in_file(
+                    Path("synthetic.yaml"), data, id_index, entity_package=pkg, current_maps=current_maps
+                )
+                assert errors == [], (
+                    f"{entity_type}.{field}: a historical referencing entity "
+                    f"pointing at an existing, correctly-typed, same-package "
+                    f"but non-current target produced {errors}, expected no "
+                    f"diagnostics — historical sources are exempt from "
+                    f"manifest currency (D-023/H-21)"
+                )
+
+        for entity_type, nested_fields in vr.NESTED_REFERENCE_FIELDS.items():
+            for array_field, item_field, want_type in nested_fields:
+                target_id = _target_id(want_type)
+                id_index = {target_id: [{"path": Path("target.yaml"), "package": pkg}]}
+                data = {
+                    "type": entity_type, "id": self_id, "version_id": self_version,
+                    array_field: [{item_field: target_id}],
+                }
+                errors = vr.validate_references_in_file(
+                    Path("synthetic.yaml"), data, id_index, entity_package=pkg, current_maps=current_maps
+                )
+                assert errors == [], (
+                    f"{entity_type}.{array_field}[].{item_field}: a historical "
+                    f"referencing entity pointing at an existing, correctly-"
+                    f"typed, same-package but non-current target produced "
+                    f"{errors}, expected no diagnostics — historical sources "
+                    f"are exempt from manifest currency (D-023/H-21)"
                 )
 
 
@@ -1108,6 +1228,37 @@ class TestUnreadableSubtreeFailsClosed:
             f"{check_fn.__module__}: expected exactly one "
             f"INVESTIGATION_ROOT_SYMLINK diagnostic under its own validator "
             f"name, got: {actual}"
+        )
+
+    @pytest.mark.parametrize("check_fn", ALL_CHECKS, ids=lambda f: f.__module__)
+    def test_every_single_check_fails_closed_on_internal_symlink(self, tmp_path, check_fn):
+        """M-27 (tenth-pass review): the same vacuous-pass failure class as
+        the unreadable-subtree and symlinked-root tests above, but for an
+        ordinary INTERNAL symlink — a file inside the package, not the
+        root, not manifest-listed. Before this fix, only
+        run_reference_validation rejected internal symlinks
+        (PACKAGE_SYMLINK); the other four standalone checks reached the
+        symlinked file via find_entity_files, which already silently
+        excludes symlinks by design, and so passed VACUOUSLY without ever
+        explaining why. This proves all five now reject it, each under its
+        own validator name, from one shared boe_files.discover_packages
+        walk (not five independent ones)."""
+        pkg = tmp_path / "harbour-tender-inquiry"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
+        stray_symlink = pkg / "claims" / "stray-symlink.yaml"
+        stray_symlink.symlink_to(pkg / "investigation.yaml")
+
+        passed, errors = check_fn(investigation_paths=[pkg], schema_dir=SCHEMA_DIR, verbose=False)
+
+        assert not passed, (
+            f"{check_fn.__module__}: an internal symlink must fail this "
+            f"check on its own, not silently pass"
+        )
+        actual = sorted((e.validator, e.code, e.path, e.location) for e in errors)
+        expected_validator = check_fn.__module__.replace("validate_", "", 1)
+        assert actual == [(expected_validator, "PACKAGE_SYMLINK", str(stray_symlink), "")], (
+            f"{check_fn.__module__}: expected exactly one PACKAGE_SYMLINK "
+            f"diagnostic under its own validator name, got: {actual}"
         )
 
 

@@ -83,6 +83,110 @@ def _walk_package(inv_path: Path) -> tuple[list[Path], list[Path], list[OSError]
     return files, symlinks, errors
 
 
+@dataclass(frozen=True)
+class PackageDiscovery:
+    """
+    Every filesystem-integrity fact about ONE package root, from exactly one
+    walk (tenth-pass review M-24: `find_entity_files`, `find_all_symlinks`,
+    and `find_traversal_errors` previously each walked the same tree
+    independently — three passes of I/O, and a time-of-check/time-of-use gap
+    between the "is this safe" pass and the "read these files" pass).
+
+    `root_is_symlink=True` means the walk never happened at all (a symlinked
+    root is rejected before descending into it — see find_entity_files); the
+    other three fields are then always empty, not merely unpopulated.
+    """
+
+    root: Path
+    entity_files: list[Path]
+    root_is_symlink: bool
+    internal_symlinks: list[Path]
+    traversal_errors: list[OSError]
+
+
+def discover_package(inv_path: Path) -> PackageDiscovery:
+    """One walk of one package root, producing every fact a validator's
+    preflight and entity-iteration steps need."""
+    if inv_path.is_symlink():
+        return PackageDiscovery(
+            root=inv_path, entity_files=[], root_is_symlink=True,
+            internal_symlinks=[], traversal_errors=[],
+        )
+    files, symlinks, errors = _walk_package(inv_path)
+    entity_files = sorted(
+        p for p in files if p.suffix in (".yaml", ".yml") and p.name != MANIFEST_NAME
+    )
+    return PackageDiscovery(
+        root=inv_path, entity_files=entity_files, root_is_symlink=False,
+        internal_symlinks=sorted(symlinks), traversal_errors=errors,
+    )
+
+
+def discover_packages(investigation_paths: list[Path]) -> list[PackageDiscovery]:
+    """One PackageDiscovery per requested root, each from its own single
+    walk. Pass the SAME result to every validator selected for a CLI run
+    instead of letting each one re-walk the tree."""
+    return [discover_package(p) for p in investigation_paths]
+
+
+def preflight_diagnostics(discoveries: list[PackageDiscovery], validator: str) -> list[Diagnostic]:
+    """
+    Every filesystem-integrity diagnostic (symlinked root, internal symlink,
+    unreadable subtree) a validator must report BEFORE its own domain checks
+    run, for the given discoveries.
+
+    Every validator that consumes entity files via `discoveries` must call
+    this too (tenth-pass review M-27: only `run_reference_validation` used
+    to reject internal symlinks — `find_entity_files` silently excludes a
+    symlinked entity file either way, so the other four standalone checks
+    passed vacuously on a package they had not actually fully inspected,
+    same failure class as the eighth-pass M-22/H-22 root and traversal gaps).
+    """
+    diagnostics = []
+    for d in discoveries:
+        if d.root_is_symlink:
+            diagnostics.append(Diagnostic(
+                "INVESTIGATION_ROOT_SYMLINK", validator, str(d.root),
+                f"{d.root}: package root is a symlink — symlinked package "
+                f"roots are prohibited (they can point anywhere on disk, "
+                f"bypassing every per-path containment check)",
+            ))
+            continue
+        for symlinked in d.internal_symlinks:
+            diagnostics.append(Diagnostic(
+                "PACKAGE_SYMLINK", validator, str(symlinked),
+                f"{symlinked}: symlink found inside a package — symlinks "
+                f"are prohibited anywhere in a package, including "
+                f"unmanifested historical versions, subdirectories, and "
+                f"non-YAML files (they can indirect to content outside the "
+                f"package, or crash validation if broken)",
+            ))
+        for exc in d.traversal_errors:
+            failed_dir = getattr(exc, "filename", None) or d.root
+            diagnostics.append(Diagnostic(
+                "PACKAGE_SUBTREE_UNREADABLE", validator, str(failed_dir),
+                f"{failed_dir}: could not list directory contents ({exc}) — "
+                f"a package cannot be certified when part of it was not "
+                f"inspectable",
+            ))
+    return diagnostics
+
+
+def entity_files_from(discoveries: list[PackageDiscovery]) -> list[Path]:
+    """All entity files across every discovery, globally sorted — matches
+    find_entity_files's ordering for callers that iterate multiple packages."""
+    return sorted(p for d in discoveries for p in d.entity_files)
+
+
+def entities_from(discoveries: list[PackageDiscovery]) -> Iterator[Tuple[Path, dict]]:
+    """Yield (path, data) for every parseable entity file across every
+    discovery, without re-walking the filesystem."""
+    for path in entity_files_from(discoveries):
+        data, error = load_yaml(path)
+        if data is not None and error is None:
+            yield path, data
+
+
 def find_entity_files(investigation_paths: list[Path]) -> list[Path]:
     """
     All entity YAML files (both .yaml and .yml), excluding package
@@ -132,63 +236,6 @@ def find_traversal_errors(investigation_paths: list[Path]) -> list[tuple[Path, O
         _, _, errors = _walk_package(inv_path)
         result.extend((inv_path, exc) for exc in errors)
     return result
-
-
-def traversal_error_diagnostics(investigation_paths: list[Path], validator: str) -> list[Diagnostic]:
-    """
-    Every unreadable subtree from find_traversal_errors, as ready-to-use
-    Diagnostics for the given validator.
-
-    EVERY validator that walks entity files (i.e. every one of them, via
-    find_entity_files/iter_entities) must include these in its own error
-    list. Without this, a single-check invocation such as
-    `--check schema` or `--check ids` can still certify a package it did
-    not completely inspect, even though run_reference_validation already
-    fails closed on the same package — the M-22 fix only helps a consumer
-    that actually calls it (eighth-pass review follow-up, flagged by
-    automated review after the initial M-22 fix landed only in
-    validate_references.py).
-    """
-    diagnostics = []
-    for inv_path, exc in find_traversal_errors(investigation_paths):
-        failed_dir = getattr(exc, "filename", None) or inv_path
-        diagnostics.append(Diagnostic(
-            "PACKAGE_SUBTREE_UNREADABLE", validator, str(failed_dir),
-            f"{failed_dir}: could not list directory contents ({exc}) — "
-            f"a package cannot be certified when part of it was not "
-            f"inspectable",
-        ))
-    return diagnostics
-
-
-def symlinked_root_diagnostics(investigation_paths: list[Path], validator: str) -> list[Diagnostic]:
-    """
-    A package ROOT that is itself a symlink, as ready-to-use Diagnostics
-    for the given validator.
-
-    find_entity_files (and therefore iter_entities) silently skips a
-    symlinked investigation root entirely — by design, see its docstring —
-    which means a validator that only calls find_entity_files/iter_entities
-    just sees zero files for that path and passes VACUOUSLY, with no
-    diagnostic explaining why. `run_reference_validation` has always
-    reported this itself (INVESTIGATION_ROOT_SYMLINK) because it also
-    needs the filtered path list for later steps; the other four
-    validators had no equivalent check at all until this helper (PR #13
-    review follow-up, same class of gap as traversal_error_diagnostics: a
-    standalone `--check schema`/`ids`/`orphans`/`provenance` run could
-    silently certify a symlinked package root it never actually looked
-    at).
-    """
-    diagnostics = []
-    for inv_path in investigation_paths:
-        if inv_path.is_symlink():
-            diagnostics.append(Diagnostic(
-                "INVESTIGATION_ROOT_SYMLINK", validator, str(inv_path),
-                f"{inv_path}: package root is a symlink — symlinked package "
-                f"roots are prohibited (they can point anywhere on disk, "
-                f"bypassing every per-path containment check)",
-            ))
-    return diagnostics
 
 
 def find_manifest(investigation_path: Path) -> Optional[Path]:

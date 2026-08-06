@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to tenth-pass review (2026-08-06, D-024)
+
+- `boe_files.py` gained `PackageDiscovery`/`discover_packages`: each package root is now walked exactly ONCE per validation run, producing entity files, internal symlinks, and traversal errors together, instead of `find_entity_files`/`find_all_symlinks`/`find_traversal_errors` each independently re-walking the same tree (M-24)
+- `preflight_diagnostics` (replacing `symlinked_root_diagnostics`/`traversal_error_diagnostics`) now emits `PACKAGE_SYMLINK` for an ordinary internal symlink from all five validators, not just `references` — `schema`/`ids`/`orphans`/`provenance` previously passed vacuously on a package containing an unmanifested internal symlink (M-27)
+- A new parameterized test (`test_every_single_check_fails_closed_on_internal_symlink`) and four extended `TestInvalidFixtures` expectations (`manifest-symlink-escape`, `unmanifested-symlink`, `broken-unmanifested-symlink`, `symlinked-subdirectory`) prove the M-27 fix across all five validators
+- Renamed the historical-registry test to `test_every_registered_field_enforces_currency_when_source_is_current` (it never actually exercised a historical source, despite its old name/docstring claiming otherwise) and added `test_every_registered_field_exempts_historical_source_from_currency`, which does — a historical referencing entity pointing at an existing-but-non-current target must produce NO diagnostics, parameterized across all 32 registered reference locations (M-28)
+- Corrected `CLAUDE.md`'s `scripts/boe_files.py` layout note, which claimed `find_entity_files`/`find_all_symlinks` shared one traversal (they shared a function, not a walk) and didn't mention the new centralized discovery/preflight mechanism (L-11)
+- 71 tests (was 65)
+
 ### Changed — response to eighth-pass review (2026-08-06, D-023)
 
 - The manifest-currency rule (H-20/D-021) now applies only to references made BY a current entity version — a historical/superseded referencing file is exempt from `REF_NOT_CURRENT` (still checked for `REF_NOT_FOUND`/`REF_TYPE_MISMATCH`/`REF_WRONG_PACKAGE`), so valid history stops becoming invalid whenever the referenced entity is later retired entirely (H-21)
