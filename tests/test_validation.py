@@ -10,6 +10,7 @@ Run with: pytest tests/
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -1366,12 +1367,9 @@ class TestSharedDiscoveryAcrossChecks:
         context = boe_files.ValidationContext.for_paths([pkg])
         expected = set(context.entity_files()) | {pkg / boe_files.MANIFEST_NAME}
 
-        reads = []
-        real_read_bytes = Path.read_bytes
-        monkeypatch.setattr(
-            Path, "read_bytes",
-            lambda self, *a, **k: (reads.append(self), real_read_bytes(self, *a, **k))[1],
-        )
+        # Counted at boe_files._read_bytes_nofollow, the single function
+        # that reads document content.
+        reads = self._counting(monkeypatch, "_read_bytes_nofollow")
         passed, results = v.run_all_checks([pkg], SCHEMA_DIR, False, v.CHECKS)
 
         assert passed, f"Valid fixture must pass run_all_checks: {results}"
@@ -1396,8 +1394,9 @@ class TestSharedDiscoveryAcrossChecks:
         context = boe_files.ValidationContext.for_paths([pkg])
 
         # Scoped to the PACKAGE tree: schema/*.json are legitimately read by
-        # the schema validator and are not package documents.
-        real_read_bytes, real_open = Path.read_bytes, open
+        # the schema validator and are not package documents. Every route to
+        # file content is guarded, not just the one discovery happens to use.
+        import boe_files as bf
 
         def _guard(real):
             def wrapper(target, *a, **k):
@@ -1406,8 +1405,10 @@ class TestSharedDiscoveryAcrossChecks:
                 return real(target, *a, **k)
             return wrapper
 
-        monkeypatch.setattr(Path, "read_bytes", _guard(real_read_bytes))
-        monkeypatch.setattr("builtins.open", _guard(real_open))
+        monkeypatch.setattr(bf, "_read_bytes_nofollow", _guard(bf._read_bytes_nofollow))
+        monkeypatch.setattr(Path, "read_bytes", _guard(Path.read_bytes))
+        monkeypatch.setattr("builtins.open", _guard(open))
+        monkeypatch.setattr(os, "open", _guard(os.open))
 
         results = {}
         for name, check_fn in v.CHECKS.items():

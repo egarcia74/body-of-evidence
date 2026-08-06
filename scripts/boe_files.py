@@ -236,15 +236,37 @@ def discover_package(inv_path: Path) -> PackageDiscovery:
     )
 
 
+def _read_bytes_nofollow(path: Path) -> bytes:
+    """Read a file's bytes, refusing to follow a symlink at the final path
+    component (O_NOFOLLOW raises ELOOP instead).
+
+    Discovery already excludes symlinks — this is the read-side backstop for
+    the window between enumerating a path and reading it, during which the
+    path could be replaced by a symlink pointing outside the package. It
+    narrows that window; it does not close it, and it does not cover a
+    symlink substituted for a PARENT directory (O_NOFOLLOW applies only to
+    the last component). The full guarantee needs the captured digests
+    re-verified at publication — D-016, per D-027. Do not describe this as
+    closing TOCTOU.
+
+    On platforms without O_NOFOLLOW the flag degrades to 0 and this behaves
+    as an ordinary read; discovery-time exclusion still applies.
+    """
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, "rb") as f:
+        return f.read()
+
+
 def _read_document(path: Path) -> DiscoveredDocument:
     """Read one document's bytes once and digest them. Parsing is deferred
     to DiscoveredDocument.parse(), which builds a fresh object graph per
     call so validators cannot corrupt each other's view (H-24)."""
     try:
-        raw = path.read_bytes()
+        raw = _read_bytes_nofollow(path)
     except OSError as e:
-        # A broken symlink or permissions failure must become a diagnostic,
-        # not an uncaught crash of the whole run (see load_yaml).
+        # A broken symlink, a symlink substituted after discovery, or a
+        # permissions failure must become a diagnostic, not an uncaught
+        # crash of the whole run (see load_yaml).
         return DiscoveredDocument(
             path=path, raw=None, digest=None,
             read_error=f"{path}: Could not read file: {e}",
@@ -550,7 +572,7 @@ def load_yaml(path: Path) -> tuple[dict | None, str | None]:
     validator.
     """
     try:
-        raw = path.read_bytes()
+        raw = _read_bytes_nofollow(path)
     except OSError as e:
         # A broken symlink (or a permissions/IO failure) must become a
         # diagnostic, not an uncaught crash of the whole validation run

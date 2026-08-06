@@ -15,6 +15,7 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 - **All five per-validator `__main__` runners now refuse to run.** The D-026 signature change left `python3 scripts/validate_{schema,ids,orphans,provenance}.py` crashing on startup, undetected because nothing ran them. They were redundant with `validate.py --check <name>`, and each duplicated discovery with a weaker `p.is_dir()` filter (the D-023/H-22 dangling-symlink blindness) and no empty-run guard. They print the supported command and exit non-zero rather than being deleted — simply deleting them made those commands exit 0 in silence, a quieter failure than the crash. Every supported CLI invocation, and every refusal, now has subprocess smoke coverage (M-31)
 - `validate_paths` fails closed on an empty run (no paths, or an empty check selection) unless `allow_empty=True` — the supported API must not answer "passed" for validating nothing (invariant 10)
 - `load_yaml` now reads bytes and delegates to `parse_yaml_bytes` rather than `open(path)`, whose default encoding is locale-dependent — the two could otherwise decode the same file differently
+- Document content is read with `O_NOFOLLOW`, so a path swapped for a symlink after discovery enumerated it is refused rather than followed outside the package — hardening that narrows the read-side window, explicitly NOT a TOCTOU fix (which remains D-016's)
 - 116 tests (was 95)
 
 ### Changed — response to eleventh-pass review (2026-08-06, D-026)
