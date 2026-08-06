@@ -124,8 +124,15 @@ def discover_package(inv_path: Path) -> PackageDiscovery:
 
 def discover_packages(investigation_paths: list[Path]) -> list[PackageDiscovery]:
     """One PackageDiscovery per requested root, each from its own single
-    walk. Pass the SAME result to every validator selected for a CLI run
-    instead of letting each one re-walk the tree."""
+    walk. CALL THIS ONCE per CLI run and pass the SAME result to every
+    `run_*_validation(..., discoveries=...)` call — every validator accepts
+    that parameter and falls back to calling this itself only when omitted
+    (see validate.py's `run_all_checks`, the actual entry point for a
+    `--check all` run and for `--self-test`). Calling this separately per
+    validator, rather than once and threading the result through, re-walks
+    the same tree once per validator — the tenth-pass review's own
+    CodeRabbit pass caught exactly that gap in this function's first
+    version."""
     return [discover_package(p) for p in investigation_paths]
 
 

@@ -1262,6 +1262,46 @@ class TestUnreadableSubtreeFailsClosed:
         )
 
 
+class TestSharedDiscoveryAcrossChecks:
+    """Tenth-pass review CodeRabbit follow-up to D-024/M-24: the initial fix
+    made each run_*_validation call discover_packages exactly once, but
+    run_all_checks (the actual CLI/self-test entry point) still called each
+    of the five checks independently, so a real `--check all` invocation —
+    or a single --self-test fixture pass — walked every package root once
+    PER VALIDATOR, five times total, not once for the whole run. The claim
+    "one walk per package" was true per validator call, false for a full
+    run. run_all_checks now builds one list[PackageDiscovery] and passes it
+    to every check via the new `discoveries` parameter; this proves it by
+    counting actual boe_files.discover_package calls."""
+
+    def test_run_all_checks_walks_each_package_exactly_once(self, monkeypatch):
+        import boe_files
+        import validate as v
+
+        call_count = {"n": 0}
+        real_discover_package = boe_files.discover_package
+
+        def counting_discover_package(inv_path):
+            call_count["n"] += 1
+            return real_discover_package(inv_path)
+
+        # boe_files.discover_packages calls discover_package by module-global
+        # lookup at call time, so patching it here also affects validate.py's
+        # `from boe_files import discover_packages` — same function object.
+        monkeypatch.setattr(boe_files, "discover_package", counting_discover_package)
+
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        passed, results = v.run_all_checks([pkg], SCHEMA_DIR, False, v.CHECKS)
+
+        assert passed, f"Valid fixture must pass run_all_checks: {results}"
+        assert call_count["n"] == 1, (
+            f"Expected exactly one discover_package call for one package "
+            f"root across all five checks, got {call_count['n']} — a check "
+            f"is walking the tree independently instead of using the "
+            f"discoveries run_all_checks already built"
+        )
+
+
 def list_dir_is_readable(path: Path) -> bool:
     """True if listing `path` succeeds despite an attempted chmod(0o000) —
     e.g. when the test runs as root, where permission bits don't apply."""

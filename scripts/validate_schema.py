@@ -14,6 +14,7 @@ from pathlib import Path
 
 from boe_files import (
     Diagnostic,
+    PackageDiscovery,
     discover_packages,
     entity_files_from,
     find_manifest,
@@ -74,8 +75,15 @@ def run_schema_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
+    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
-    """Returns (passed, errors). Counts validated files so callers can detect vacuous runs."""
+    """Returns (passed, errors). Counts validated files so callers can detect vacuous runs.
+
+    `discoveries`, if provided, is a pre-built list[PackageDiscovery] — pass
+    it when running multiple checks over the same paths (see
+    validate.py's run_all_checks) so the package tree is walked once for
+    the whole run, not once per check. Computed from investigation_paths
+    when omitted, for standalone/direct calls (e.g. tests)."""
     if not JSONSCHEMA_AVAILABLE:
         return False, [_err(
             "SCHEMA_JSONSCHEMA_UNAVAILABLE", "<repo>",
@@ -86,9 +94,9 @@ def run_schema_validation(
     # One walk per package root produces every preflight fact (symlinked
     # root, internal symlink, unreadable subtree) this check must fail
     # closed on, instead of certifying a package it did not completely or
-    # safely inspect (eighth-pass M-22, tenth-pass M-24/M-27 — every
-    # standalone check shares one discovery, not its own walk).
-    discoveries = discover_packages(investigation_paths)
+    # safely inspect (eighth-pass M-22, tenth-pass M-24/M-27).
+    if discoveries is None:
+        discoveries = discover_packages(investigation_paths)
     all_errors = preflight_diagnostics(discoveries, VALIDATOR)
     validated = 0
 

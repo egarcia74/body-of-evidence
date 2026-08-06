@@ -38,6 +38,7 @@ from pathlib import Path
 
 from boe_files import (
     Diagnostic,
+    PackageDiscovery,
     discover_packages,
     entities_from,
     find_manifest,
@@ -596,17 +597,25 @@ def run_reference_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
+    discoveries: list[PackageDiscovery] | None = None,
 ) -> tuple[bool, list[Diagnostic]]:
-    # One walk per package root produces every preflight fact — symlinked
-    # root, internal symlink (any file, directory, extension, manifested or
-    # not: sixth-pass H-19, broadened by seventh-pass M-20), and unreadable
-    # subtree (eighth-pass M-22) — instead of three independent walks
-    # (tenth-pass review M-24), and this validator no longer has to be the
-    # only one that rejects internal symlinks (tenth-pass review M-27: the
-    # other four standalone checks previously omitted them silently via
-    # find_entity_files, exactly the same vacuous-pass failure class as
-    # M-22/H-22). See boe_files.preflight_diagnostics.
-    discoveries = discover_packages(investigation_paths)
+    """`discoveries`, if provided, is a pre-built list[PackageDiscovery] —
+    pass it when running multiple checks over the same paths (see
+    validate.py's run_all_checks) so the package tree is walked once for
+    the whole run, not once per check. Computed from investigation_paths
+    when omitted, for standalone/direct calls (e.g. tests).
+
+    One walk per package root produces every preflight fact — symlinked
+    root, internal symlink (any file, directory, extension, manifested or
+    not: sixth-pass H-19, broadened by seventh-pass M-20), and unreadable
+    subtree (eighth-pass M-22) — instead of three independent walks
+    (tenth-pass review M-24), and this validator no longer has to be the
+    only one that rejects internal symlinks (tenth-pass review M-27: the
+    other four standalone checks previously omitted them silently via
+    find_entity_files, exactly the same vacuous-pass failure class as
+    M-22/H-22). See boe_files.preflight_diagnostics."""
+    if discoveries is None:
+        discoveries = discover_packages(investigation_paths)
     all_errors = preflight_diagnostics(discoveries, VALIDATOR)
     real_investigation_paths = [d.root for d in discoveries if not d.root_is_symlink]
 
