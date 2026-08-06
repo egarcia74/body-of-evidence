@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Added — pytest coverage tooling (2026-08-06, D-024)
+
+- `pytest-cov==7.1.0` added to `scripts/requirements.txt`; both `validate-schema.yml` and `sonarcloud.yml` now run `pytest --cov=scripts --cov-report=xml --cov-report=term-missing`, producing `coverage.xml`
+- `sonar-project.properties` now sets `sonar.python.coverage.reportPaths=coverage.xml`, so SonarQube Cloud's previously-unconditional `new_coverage: 0%` reflects real coverage data instead of the absence of any report
+- Subprocess coverage measurement wired in (`.coveragerc` with `parallel = true`, `.github/coverage-subprocess/sitecustomize.py`, `COVERAGE_PROCESS_START`/`PYTHONPATH` set for the test step in both workflows) so the CLI-level tests that spawn `scripts/validate.py` as a real subprocess are actually measured — without it, `validate.py` reported 0% despite having dedicated CLI tests; verified locally to go from 0% to 63% (repo total 67% to 76%)
+- No coverage threshold enforced yet (no `--cov-fail-under` in CI, no SonarQube Cloud quality-gate coverage condition) — this change produces and surfaces accurate coverage data; setting a bar is a separate future decision once a baseline exists
+- Scoped independently of the concurrent architecture-review remediation branch by deliberate choice — see D-024
+
 ### Changed — response to eighth-pass review (2026-08-06, D-023)
 
 - The manifest-currency rule (H-20/D-021) now applies only to references made BY a current entity version — a historical/superseded referencing file is exempt from `REF_NOT_CURRENT` (still checked for `REF_NOT_FOUND`/`REF_TYPE_MISMATCH`/`REF_WRONG_PACKAGE`), so valid history stops becoming invalid whenever the referenced entity is later retired entirely (H-21)
