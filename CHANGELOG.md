@@ -8,6 +8,17 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Added — D-016 Edition design (2026-08-06)
+
+- **Design ADR only; nothing implemented.** Defines immutable, content-addressed Editions as the release artifact, with `package.yaml` demoted to a mutable working head that compiles into an Edition at release time (C-02)
+- Edition identity is `boe:edition:<ULID>` — preserving TERMINOLOGY.md's rule that every `boe:` id carries a ULID — with integrity supplied by a SHA-256 `content_digest` over the RFC 8785 (JCS) canonical JSON body. Editions are JSON (YAML has no canonical form) at `investigations/<slug>/editions/<ulid>.json`
+- The parent pointer carries the parent's digest, so the Edition chain is a hash chain: tampering with any historical Edition is detectable from the head. This gives `README.md`'s existing "verify that nothing has been silently changed" an actual procedure
+- **Reference resolution becomes Edition-scoped, with no change to any of the 32 reference locations** (C-03). A reference resolves against the Edition containing the referencing version; immutability is what makes a stable-id reference exact. Explicit per-reference version pins were considered and rejected — they would cascade edits through every pinning file, manufacturing entity versions. This retires D-023/H-21's interim `referencing_is_current` rule
+- Single-owner stable ids plus explicit `imports` pinned to `{slug, edition_id, content_digest}`, answering D-020's open question. `dependencies` — declarable today but read by no validator — is removed rather than left as a no-op
+- The validate→publish digest chain closes D-027's content-TOCTOU IOU: `DiscoveredDocument.digest` feeds `members[].digest`, and publication refuses on mismatch. Scoped honestly — it detects a change between validation and publication, it does not prevent one
+- Signature envelope designed (detached `.sig` over the content digest, so re-serialisation cannot invalidate it), implementation deferred; resolves the standing contradiction between `DECISIONS.md` ("must be designed together with signing") and `ROADMAP.md` ("Unprioritised / Future")
+- Documents the doc corrections the design requires (Git-tag releases vs Editions in `VERSIONING.md`; five unqualified "package.yaml is the single source of truth" statements; `REPRODUCIBILITY.md`'s Git-archaeology mechanism) and one prerequisite it does NOT satisfy: superseded schema bundles are not preserved, so an Edition can name its `schema_version` but not yet resolve it to bytes
+
 ### Changed — response to post-eleventh-pass feedback (2026-08-06, D-027)
 
 - **Removed the proof-of-walk token.** D-026 claimed a `PackageDiscovery` "cannot be fabricated" because construction required a module-private token; a leading underscore is a naming convention, not access control, and importing `boe_files._WALK_TOKEN` produced a clean pass on a known-invalid package. `validate.validate_paths(paths, schema_dir)` is now the supported programmatic entry point — it takes paths plus ordinary configuration, but no caller-supplied validation state — and `ValidationContext`/`PackageDiscovery`/`DiscoveredDocument` are documented as internal (H-24)
