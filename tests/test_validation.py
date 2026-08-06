@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -1400,7 +1401,14 @@ class TestSharedDiscoveryAcrossChecks:
 
         def _guard(real):
             def wrapper(target, *a, **k):
-                if Path(target).is_relative_to(pkg):
+                # os.open also accepts an int fd or bytes; only a real path
+                # can be inside the package, and Path() would raise on the
+                # rest, so non-path targets pass straight through.
+                try:
+                    inside = Path(target).is_relative_to(pkg)
+                except TypeError:
+                    inside = False
+                if inside:
                     raise AssertionError(f"{target} was re-read after discovery")
                 return real(target, *a, **k)
             return wrapper
@@ -1470,7 +1478,7 @@ class TestValidationContextIsSelfConsistent:
         assert ValidationContext(discoveries=()).roots == ()
 
     def test_a_fabricated_discovery_is_not_claimed_to_be_prevented(self):
-        """H-24 (twelfth-round feedback). An earlier version of this response
+        """H-24 (post-eleventh-pass feedback). An earlier version of this response
         used a module-private "proof-of-walk" token so a discovery could only
         come from a real walk. That claim was wrong: the reviewer imported
         `boe_files._WALK_TOKEN` — a leading underscore is a naming
@@ -1501,8 +1509,9 @@ class TestValidationContextIsSelfConsistent:
 
     def test_the_supported_api_cannot_express_the_vacuous_pass(self):
         """The claim that replaces the token: `validate.validate_paths` takes
-        paths and nothing else, builds its own context, and therefore has no
-        parameter through which a fabricated discovery could enter."""
+        paths plus ordinary configuration (which checks, whether an empty run
+        is intentional) — but no caller-supplied validation STATE, so there is
+        no parameter through which a fabricated discovery could enter."""
         import inspect
 
         import validate as v
@@ -1538,6 +1547,11 @@ class TestValidationContextIsSelfConsistent:
         # still fails afterwards, because validate_schema has its own
         # vacuous-run guard; that is defence in depth, not this guard.)
         _, opted_in = v.validate_paths(**call, allow_empty=True)
+        assert isinstance(opted_in, Mapping), (
+            f"validate_paths must return a results mapping, got "
+            f"{type(opted_in).__name__} — the sentinel check below would "
+            f"otherwise pass for the wrong reason"
+        )
         assert "_" not in opted_in, (
             f"allow_empty=True must lift this guard specifically: {opted_in}"
         )
@@ -1588,7 +1602,7 @@ class TestValidationContextIsSelfConsistent:
 
 
 class TestValidatorsCannotCorruptEachOther:
-    """H-24 (twelfth-round feedback). D-026 gave every validator a SHARED
+    """H-24 (post-eleventh-pass feedback). D-026 gave every validator a SHARED
     parsed `dict` and claimed they "necessarily inspect the same bytes". The
     reviewer took a genuine discovery of a known-invalid package, changed one
     `version_id` in that shared dict, and turned a failing package into a
@@ -1694,7 +1708,7 @@ class TestSupportedCliEntryPoints:
         ("validate_provenance", "provenance"),
     ])
     def test_validator_modules_refuse_to_run_as_clis(self, module, check):
-        """The per-validator runners must stay gone — each duplicated package
+        """The per-validator runners must stay disabled — each duplicated package
         discovery with a weaker `p.is_dir()` filter (D-023/H-22's
         dangling-symlink blindness) and had no empty-run guard. They refuse
         LOUDLY rather than being deleted outright: simply removing the

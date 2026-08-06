@@ -250,9 +250,13 @@ def _read_bytes_nofollow(path: Path) -> bytes:
     closing TOCTOU.
 
     On platforms without O_NOFOLLOW the flag degrades to 0 and this behaves
-    as an ordinary read; discovery-time exclusion still applies.
+    as an ordinary read; discovery-time exclusion still applies. O_BINARY is
+    Windows-only (0 elsewhere) and is required there so the descriptor does
+    no CRLF translation — without it the bytes read, and therefore the
+    digest, would differ from the bytes on disk.
     """
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+    fd = os.open(path, flags)
     with os.fdopen(fd, "rb") as f:
         return f.read()
 
