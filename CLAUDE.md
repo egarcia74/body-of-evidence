@@ -40,6 +40,7 @@ pip install -r scripts/requirements.txt   # pinned deps (needs jsonschema>=4.18 
 python3 scripts/validate.py --self-test   # valid fixtures must pass, invalid must fail
 python3 scripts/validate.py               # validate investigations (fails if none exist; --allow-empty to override)
 python3 -m pytest tests/ -q               # 65 tests: fixtures, exact diagnostic assertions, CLI-level integration, schema-completeness scan, registry-executability scan (REF_NOT_FOUND + REF_NOT_CURRENT)
+python3 -m pytest tests/ --cov=scripts --cov-report=term-missing  # same, plus local coverage % (no threshold enforced — see DECISIONS.md)
 python3 scripts/validate.py --root <dir>  # validate an arbitrary package directory instead of <repo>/investigations (D-019/M-15; --root and its enumeration are error-handled — D-020/M-18, D-021/M-21)
 python3 -c "from ulid import ULID; print(ULID())"  # generate a new version_id/id ULID
 ```

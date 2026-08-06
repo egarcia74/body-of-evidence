@@ -29,6 +29,22 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Coverage must be generated in this job (not validate-schema.yml,
+      # a separate workflow run) so coverage.xml exists on disk when the
+      # scan step below reads sonar.python.coverage.reportPaths.
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run unit tests with coverage
+        run: python -m pytest tests/ -v --cov=scripts --cov-report=xml --cov-report=term-missing
+
       # Informational only during pre-alpha baselining: the scan reports to
       # SonarQube Cloud without failing CI on the quality gate. To promote
       # the gate to a hard check once the baseline is clean, set
