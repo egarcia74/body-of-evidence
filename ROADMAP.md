@@ -19,7 +19,12 @@ data accumulates around the mutable manifest model.
       RFC 8785 canonical JSON releases, Edition-scoped reference
       resolution — designed as one unit (C-02/C-03 from the reviews).
       DESIGN ONLY; implementation is the four phases below.
-- [ ] D-016 phase 1: `edition.schema.json`, editions compile + verify
+- [ ] D-016 phase 1: `edition.schema.json`, editions compile + verify, AND
+      validated-byte publication (publish from retained bytes or a
+      content-addressed snapshot — never a re-read), with the regression
+      test that mutates a file between validation and publication. Without
+      this the implementation can re-read and silently reintroduce the
+      TOCTOU defect D-027 left to this ADR
 - [ ] D-016 phase 2: Edition-scoped reference resolution; removes
       D-023/H-21's interim `referencing_is_current` rule (and is where
       `validate_manifest`'s deferred complexity is discharged)

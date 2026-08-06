@@ -43,7 +43,7 @@ Document what you looked for and did not find. An investigation that found no ev
 
 All structured data is version-controlled in Git. The Git history is part of the reproducibility record. Investigators can reconstruct the state of an investigation at any point in time.
 
-*(D-016, accepted 2026-08-06: reconstruction currently requires reading Git history — "Git archaeology" — because the manifest that defines a release is mutable. Immutable Editions are designed to make a release reconstructable as a single artifact, without walking history. The design is accepted; the mechanism is NOT built, so Git history remains the only mechanism today. See "The D-016 design" in DECISIONS.md.)*
+*(D-016, accepted 2026-08-06: reconstruction currently requires reading Git history — "Git archaeology" — because the manifest that defines a release is mutable. Immutable Editions are designed to make ONE PACKAGE's release reconstructable from a single artifact, without walking history. A release that imports other packages needs each imported Edition and its validated bytes too, so "a single artifact" is a per-package claim, not a whole-dependency-graph one. The design is accepted; the mechanism is NOT built, so Git history remains the only mechanism today. See "The D-016 design" in DECISIONS.md.)*
 
 ---
 
