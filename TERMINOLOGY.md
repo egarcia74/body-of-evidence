@@ -90,6 +90,12 @@ A primary or secondary document, recording, or artefact from which evidence is e
 
 **Package Manifest** — `package.yaml` in each investigation: declares which entity versions are current, the schema and methodology versions, dependencies, and maintainers. The single source of truth for current state.
 
+**Edition** *(designed, not implemented)* — An immutable, content-addressed release of one investigation package: `boe:edition:<ulid>`, carrying the exact `version_id` and byte digest of every entity in the release, plus the digest of its parent Edition. Compiled from the working head at release time. See "The D-016 design" in DECISIONS.md. **No Edition exists yet and no tooling produces one.**
+
+**Working head** *(designed, not implemented)* — What `package.yaml` becomes once Editions exist: the mutable current authoring state, as distinct from an immutable released Edition. Today `package.yaml` is still both.
+
+**Content digest** — A SHA-256 over exact bytes, used to bind an identifier to the content it names. Already used for source artifacts (`artifacts[].sha256`); D-016 extends the idea to entity files and Edition manifests.
+
 **MCP** — Model Context Protocol. A standard for exposing structured data and tools to AI agents. The evidence model is designed to be queryable via MCP.
 
 **JSON Schema** — The schema language used to define and validate entity structure. All schemas live in `schema/`.
