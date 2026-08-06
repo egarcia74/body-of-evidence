@@ -37,6 +37,7 @@ validating nothing.
 from pathlib import Path
 
 from boe_files import (
+    MANIFEST_NAME,
     Diagnostic,
     PackageDiscovery,
     ValidationContext,
@@ -456,11 +457,27 @@ def validate_manifest(discovery: PackageDiscovery, context: ValidationContext):
                 ))
                 continue
             listed_document = context.document_for(entity_file)
-            if listed_document is None or listed_document.error or not listed_document.data:
-                # Not discovered (e.g. excluded as a symlink, already
-                # diagnosed by preflight), unparseable, or empty. Parse
-                # errors are reported by schema validation.
+            if listed_document is None:
+                if entity_file.is_symlink():
+                    continue  # already reported as PACKAGE_SYMLINK by preflight
+                # The path exists, isn't a symlink, and still isn't a
+                # discovered entity document — a directory, or a file
+                # discovery excludes by design (package.yaml itself). Reading
+                # it used to be attempted anyway, which silently skipped the
+                # id/version_id checks below on failure; failing closed here
+                # instead keeps this check independent of whether schema
+                # validation happens to reject the path too (D-025/M-27's
+                # lesson: never rely on another validator having caught it).
+                errors.append(_err(
+                    "MANIFEST_PATH_NOT_AN_ENTITY", manifest_path,
+                    f"{ctx}: Listed path '{path}' is not an entity document — "
+                    f"a manifest entry must point at a non-symlink .yaml/.yml "
+                    f"file other than {MANIFEST_NAME}, so its id and "
+                    f"version_id can be checked against the entry", path
+                ))
                 continue
+            if listed_document.error or not listed_document.data:
+                continue  # parse errors are reported by schema validation
             file_data = listed_document.data
             if eid and file_data.get("id") != eid:
                 errors.append(_err(

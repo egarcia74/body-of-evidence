@@ -17,7 +17,8 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 - `test_run_all_checks_walks_each_package_exactly_once` now patches `_walk_package` — the only function that touches the directory tree — instead of counting `discover_package` factory calls, so reaching past the factory to a retained `find_*` primitive would fail it; a second test asserts one walk per root across two packages (L-12)
 - Corrected the D-024/`CHANGELOG` claim that no SonarQube Cloud quality-gate coverage condition existed: the live built-in "Sonar way" gate applies `new_coverage < 80%`. Repository configuration, the live gate, and branch-protection enforcement are now stated as three separate things (M-30)
 - Corrected D-025's "one immutable result" and time-of-check/time-of-use claims in place, with the reason each was wrong (M-29)
-- 93 tests (was 72)
+- New `MANIFEST_PATH_NOT_AN_ENTITY` diagnostic: a manifest entry whose path exists but is not a discovered entity document (a directory, or `package.yaml` itself) is now reported instead of silently skipping the entry's id/version_id checks — a fail-open regression introduced by serving manifest-listed files from the shared context, caught by the local CodeRabbit pass before push
+- 95 tests (was 72)
 
 ### Changed — response to tenth-pass review (2026-08-06, D-025)
 

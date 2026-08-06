@@ -8,7 +8,7 @@ validation is a validation hole.)
 """
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Iterator, Tuple
@@ -54,9 +54,13 @@ def _walk_package(inv_path: Path) -> tuple[list[Path], list[Path], list[OSError]
 
     Shared by discover_package and the retained find_* primitives so all
     of them see exactly the same tree and the same failures. This is the
-    ONE function that touches the directory tree, which is what makes
-    "each package is walked exactly once per run" a testable claim rather
-    than a convention (eleventh-pass review L-12).
+    only function that TRAVERSES a package tree, which is what makes "each
+    package is walked exactly once per run" a testable claim rather than a
+    convention (eleventh-pass review L-12) — it is deliberately not a claim
+    that no other code touches the filesystem at all: find_manifest still
+    stats one known path, and validate_references stats manifest-listed
+    ones. Those are single-path checks, not enumeration, and cannot hide a
+    file the way a second traversal could.
 
     Without an `onerror` callback, os.walk SILENTLY skips any subdirectory
     it cannot list (e.g. permission denied) — the caller gets an empty
@@ -162,10 +166,15 @@ class PackageDiscovery:
     root_is_symlink: bool
     internal_symlinks: tuple[Path, ...]
     traversal_errors: tuple[OSError, ...]
-    token: object = field(repr=False, compare=False, default=None)
+    token: InitVar[object] = None
 
-    def __post_init__(self):
-        if self.token is not _WALK_TOKEN:
+    def __post_init__(self, token):
+        # InitVar, not a field: the token is consumed here and never stored,
+        # so `some_discovery.token` cannot hand _WALK_TOKEN to a caller who
+        # would then be able to forge one (caught by the local CodeRabbit
+        # pass on this response — as a stored field it made the guarantee
+        # self-defeating, since every validator holds real discoveries).
+        if token is not _WALK_TOKEN:
             raise ValueError(
                 "PackageDiscovery must be built by discover_package — a "
                 "discovery that did not come from an actual filesystem walk "

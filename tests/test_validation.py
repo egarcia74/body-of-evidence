@@ -29,6 +29,10 @@ from validate_orphans import run_orphan_validation
 from validate_provenance import run_provenance_validation
 
 SCHEMA_DIR = REPO_ROOT / "schema"
+
+# The dataclass InitVar name for PackageDiscovery's proof-of-walk token;
+# asserted absent from constructed instances (see the H-23 tests below).
+_WALK_TOKEN_NAME = "token"
 FIXTURES = REPO_ROOT / "fixtures"
 
 ALL_CHECKS = [
@@ -1490,6 +1494,58 @@ class TestValidationContextIsSelfConsistent:
             schema_dir=SCHEMA_DIR, verbose=False,
         )
         assert not passed and errors
+
+    def test_a_real_discovery_does_not_hand_out_the_proof_token(self):
+        """Caught by the local CodeRabbit pass on this response: the token
+        was first written as a stored field, so `discovery.token` returned
+        `_WALK_TOKEN` — and every validator holds real discoveries, making
+        the guarantee self-defeating. It is an InitVar now: consumed at
+        construction, never stored."""
+        import boe_files
+
+        real = boe_files.discover_package(self.INVALID_PKG)
+        assert _WALK_TOKEN_NAME not in vars(real), (
+            f"'{_WALK_TOKEN_NAME}' must not be stored on a discovery instance"
+        )
+        # The InitVar's declared default leaves a class attribute behind, so
+        # the attribute resolves — what matters is that it is NOT the token.
+        assert getattr(real, _WALK_TOKEN_NAME, None) is not boe_files._WALK_TOKEN, (
+            "PackageDiscovery must not expose the proof-of-walk token — any "
+            "holder of a real discovery could read it and forge one"
+        )
+        # And the forgery that would enable is still refused.
+        with pytest.raises(ValueError, match="must be built by discover_package"):
+            boe_files.PackageDiscovery(
+                root=self.INVALID_PKG, documents=(), manifest=None,
+                root_is_symlink=False, internal_symlinks=(), traversal_errors=(),
+                token=getattr(real, _WALK_TOKEN_NAME, None),
+            )
+
+    def test_manifest_entry_pointing_at_a_non_entity_path_fails_closed(self, tmp_path):
+        """A manifest entry whose path exists but is not a discovered entity
+        document (here: the manifest itself) must be reported, not skipped.
+        Reading such a path used to be attempted directly, so a failure
+        silently bypassed the id/version_id checks — fail-open. Also caught
+        by the local CodeRabbit pass on this response."""
+        pkg = tmp_path / "harbour-tender-inquiry"
+        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
+        manifest_path = pkg / "package.yaml"
+        manifest = yaml.safe_load(manifest_path.read_text())
+        manifest["entities"].append({
+            "id": "boe:claim:01JQ0000000000000000000000",
+            "version_id": "01JQV000000000000000000000",
+            "path": "package.yaml",
+        })
+        manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False))
+
+        passed, errors = run_reference_validation(
+            context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
+        )
+        assert not passed
+        assert any(
+            e.code == "MANIFEST_PATH_NOT_AN_ENTITY" and e.location == "package.yaml"
+            for e in errors
+        ), f"Expected MANIFEST_PATH_NOT_AN_ENTITY for the package.yaml entry, got: {errors}"
 
     def test_context_rejects_duplicate_roots(self):
         """A root listed twice would validate the package twice and report
