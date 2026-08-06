@@ -1513,6 +1513,12 @@ class TestValidationContextIsSelfConsistent:
             "PackageDiscovery must not expose the proof-of-walk token — any "
             "holder of a real discovery could read it and forge one"
         )
+        # Not just the field it was declared as: the token must not be
+        # reachable through ANY stored attribute, whatever it is called.
+        assert all(v is not boe_files._WALK_TOKEN for v in vars(real).values()), (
+            f"The proof-of-walk token is reachable via "
+            f"{[k for k, v in vars(real).items() if v is boe_files._WALK_TOKEN]}"
+        )
         # And the forgery that would enable is still refused.
         with pytest.raises(ValueError, match="must be built by discover_package"):
             boe_files.PackageDiscovery(
