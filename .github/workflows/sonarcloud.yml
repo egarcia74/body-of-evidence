@@ -43,6 +43,11 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Run unit tests with coverage
+        # See validate-schema.yml for why COVERAGE_PROCESS_START/PYTHONPATH
+        # are needed to measure the CLI-level subprocess tests.
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+          PYTHONPATH: ${{ github.workspace }}/.github/coverage-subprocess
         run: python -m pytest tests/ -v --cov=scripts --cov-report=xml --cov-report=term-missing
 
       # Informational only during pre-alpha baselining: the scan reports to

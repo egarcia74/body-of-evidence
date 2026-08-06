@@ -51,6 +51,7 @@ secrets/
 
 # Test artifacts
 .coverage
+.coverage.*
 coverage.xml
 htmlcov/
 .pytest_cache/
