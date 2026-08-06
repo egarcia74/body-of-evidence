@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](VERSIONING.md). Dates are ISO 8601
 
 ## [Unreleased]
 
+### Changed — response to post-eleventh-pass feedback (2026-08-06, D-027)
+
+- **Removed the proof-of-walk token.** D-026 claimed a `PackageDiscovery` "cannot be fabricated" because construction required a module-private token; a leading underscore is a naming convention, not access control, and importing `boe_files._WALK_TOKEN` produced a clean pass on a known-invalid package. `validate.validate_paths(paths, schema_dir)` is now the supported programmatic entry point — it takes paths only — and `ValidationContext`/`PackageDiscovery`/`DiscoveredDocument` are documented as internal (H-24)
+- **`DiscoveredDocument` holds raw bytes + a SHA-256 digest, not a shared parsed dict.** D-026 gave all five validators one mutable mapping and called it "necessarily the same bytes"; mutating it turned a failing package into a passing one, making validators *less* isolated than re-reading had. `parse()` now returns a fresh object graph per call. The guarantee is restated precisely: one filesystem read per document per run, identical bytes for every validator (checkable via `digest`), and no cross-validator interference — explicitly NOT immutability, and NOT closing TOCTOU (H-24)
+- **All five per-validator `__main__` runners now refuse to run.** The D-026 signature change left `python3 scripts/validate_{schema,ids,orphans,provenance}.py` crashing on startup, undetected because nothing ran them. They were redundant with `validate.py --check <name>`, and each duplicated discovery with a weaker `p.is_dir()` filter (the D-023/H-22 dangling-symlink blindness) and no empty-run guard. They print the supported command and exit non-zero rather than being deleted — simply deleting them made those commands exit 0 in silence, a quieter failure than the crash. Every supported CLI invocation, and every refusal, now has subprocess smoke coverage (M-31)
+- 113 tests (was 95)
+
 ### Changed — response to eleventh-pass review (2026-08-06, D-026)
 
 - **Breaking (internal Python API):** every `run_*_validation` function now takes a single `context: ValidationContext` instead of `investigation_paths` plus an optional `discoveries` list. The two inputs were never reconciled, and an empty discovery paired with a known-invalid package root returned `passed=True, errors=[]` — a vacuous pass. `ValidationContext.roots` is DERIVED from its discoveries, so roots and discovery cannot disagree; `ValidationContext.for_paths()` is the single factory (H-23)

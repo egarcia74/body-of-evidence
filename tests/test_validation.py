@@ -29,10 +29,6 @@ from validate_orphans import run_orphan_validation
 from validate_provenance import run_provenance_validation
 
 SCHEMA_DIR = REPO_ROOT / "schema"
-
-# The dataclass InitVar name for PackageDiscovery's proof-of-walk token;
-# asserted absent from constructed instances (see the H-23 tests below).
-_WALK_TOKEN_NAME = "token"
 FIXTURES = REPO_ROOT / "fixtures"
 
 ALL_CHECKS = [
@@ -1358,11 +1354,9 @@ class TestSharedDiscoveryAcrossChecks:
 
     def test_each_document_is_read_exactly_once_per_run(self, monkeypatch):
         """Eleventh-pass review M-29: five validators re-opening the same
-        paths could each observe different bytes, so "the package that
-        passed schema validation" and "the package that passed reference
-        validation" were not necessarily the same content. Content is now
-        read once at discovery and shared, so every validator in a run
-        inspects identical bytes."""
+        paths could each observe different bytes. Every document's bytes are
+        now read once per run at discovery; validators parse those bytes
+        rather than re-reading the file."""
         import boe_files
         import validate as v
 
@@ -1372,7 +1366,12 @@ class TestSharedDiscoveryAcrossChecks:
         context = boe_files.ValidationContext.for_paths([pkg])
         expected = set(context.entity_files()) | {pkg / boe_files.MANIFEST_NAME}
 
-        reads = self._counting(monkeypatch, "load_yaml")
+        reads = []
+        real_read_bytes = Path.read_bytes
+        monkeypatch.setattr(
+            Path, "read_bytes",
+            lambda self, *a, **k: (reads.append(self), real_read_bytes(self, *a, **k))[1],
+        )
         passed, results = v.run_all_checks([pkg], SCHEMA_DIR, False, v.CHECKS)
 
         assert passed, f"Valid fixture must pass run_all_checks: {results}"
@@ -1385,6 +1384,36 @@ class TestSharedDiscoveryAcrossChecks:
             f"Reads did not match the discovered document set. "
             f"Unexpected: {set(reads) - expected}; missing: {expected - set(reads)}"
         )
+
+    def test_no_validator_reopens_a_document_from_disk(self, monkeypatch):
+        """The complement: once the context exists, running all five checks
+        performs NO further filesystem reads of document content. Proven by
+        making any read after context construction raise."""
+        import boe_files
+        import validate as v
+
+        pkg = FIXTURES / "valid" / "harbour-tender-inquiry"
+        context = boe_files.ValidationContext.for_paths([pkg])
+
+        # Scoped to the PACKAGE tree: schema/*.json are legitimately read by
+        # the schema validator and are not package documents.
+        real_read_bytes, real_open = Path.read_bytes, open
+
+        def _guard(real):
+            def wrapper(target, *a, **k):
+                if Path(target).is_relative_to(pkg):
+                    raise AssertionError(f"{target} was re-read after discovery")
+                return real(target, *a, **k)
+            return wrapper
+
+        monkeypatch.setattr(Path, "read_bytes", _guard(real_read_bytes))
+        monkeypatch.setattr("builtins.open", _guard(real_open))
+
+        results = {}
+        for name, check_fn in v.CHECKS.items():
+            passed, errors = check_fn(context=context, schema_dir=SCHEMA_DIR, verbose=False)
+            results[name] = (passed, errors)
+        assert all(passed for passed, _ in results.values()), results
 
 
 class TestValidationContextIsSelfConsistent:
@@ -1439,37 +1468,58 @@ class TestValidationContextIsSelfConsistent:
         # The point being that it cannot ALSO claim to have covered a root.
         assert ValidationContext(discoveries=()).roots == ()
 
-    @pytest.mark.parametrize("documents", [
-        pytest.param("empty", id="empty-discovery"),
-        pytest.param("foreign", id="foreign-discovery"),
-    ])
-    def test_a_fabricated_discovery_cannot_be_built_at_all(self, documents):
-        """The review's required proof, at its root cause: an EMPTY discovery
-        claiming a known-invalid package, and a FOREIGN one carrying another
-        package's documents, are both unconstructible. Only discover_package
-        holds the proof-of-walk token, so no caller can assert something
-        about a package without having actually walked it."""
+    def test_a_fabricated_discovery_is_not_claimed_to_be_prevented(self):
+        """H-24 (twelfth-round feedback). An earlier version of this response
+        used a module-private "proof-of-walk" token so a discovery could only
+        come from a real walk. That claim was wrong: the reviewer imported
+        `boe_files._WALK_TOKEN` — a leading underscore is a naming
+        convention, not access control — built an empty discovery for this
+        known-invalid package, and got a clean pass.
+
+        The token is gone. No in-process mechanism can stop a caller who is
+        already executing in the same interpreter from constructing whatever
+        object it likes, so this project does not claim one. What it claims
+        instead is pinned by the two tests below: the SUPPORTED API cannot
+        express the vacuous pass, and it reports this package truthfully."""
         import boe_files
 
-        if documents == "empty":
-            docs = ()
-        else:
-            docs = boe_files.discover_package(
-                FIXTURES / "valid" / "harbour-tender-inquiry"
-            ).documents
+        # Deliberately demonstrating the residual: this is not prevented.
+        fabricated = boe_files.PackageDiscovery(
+            root=self.INVALID_PKG, documents=(), manifest=None,
+            root_is_symlink=False, internal_symlinks=(), traversal_errors=(),
+        )
+        passed, errors = run_id_validation(
+            context=ValidationContext(discoveries=(fabricated,)),
+            schema_dir=SCHEMA_DIR, verbose=False,
+        )
+        assert (passed, errors) == (True, []), (
+            "If this ever starts failing, the honest documentation of the "
+            "trust boundary in boe_files.PackageDiscovery and D-027 needs "
+            "updating — not this assertion"
+        )
 
-        with pytest.raises(ValueError, match="must be built by discover_package"):
-            boe_files.PackageDiscovery(
-                root=self.INVALID_PKG, documents=docs, manifest=None,
-                root_is_symlink=False, internal_symlinks=(), traversal_errors=(),
-            )
+    def test_the_supported_api_cannot_express_the_vacuous_pass(self):
+        """The claim that replaces the token: `validate.validate_paths` takes
+        paths and nothing else, builds its own context, and therefore has no
+        parameter through which a fabricated discovery could enter."""
+        import inspect
 
-    def test_containment_is_enforced_beneath_the_walk_token(self):
-        """Defence in depth: even reaching past the proof-of-walk guard —
-        which only test code can do, by importing the private token — a
-        discovery whose contents belong to a different root is rejected. The
-        token stops fabrication; this stops a future factory bug from
-        producing a self-inconsistent discovery."""
+        import validate as v
+
+        params = inspect.signature(v.validate_paths).parameters
+        assert "discoveries" not in params and "context" not in params, (
+            f"validate_paths must not accept caller-supplied validation "
+            f"state; got parameters {list(params)}"
+        )
+        passed, _ = v.validate_paths([self.INVALID_PKG], SCHEMA_DIR)
+        assert not passed, (
+            "The supported API must report the known-invalid package"
+        )
+
+    def test_containment_is_enforced_within_a_discovery(self):
+        """Self-consistency guard against a factory bug (NOT a security
+        control — see the test above): a discovery whose documents belong to
+        a different root is rejected at construction."""
         import boe_files
 
         foreign = boe_files.discover_package(FIXTURES / "valid" / "harbour-tender-inquiry")
@@ -1477,14 +1527,12 @@ class TestValidationContextIsSelfConsistent:
             boe_files.PackageDiscovery(
                 root=self.INVALID_PKG, documents=foreign.documents, manifest=None,
                 root_is_symlink=False, internal_symlinks=(), traversal_errors=(),
-                token=boe_files._WALK_TOKEN,
             )
 
     def test_a_real_discovery_of_the_invalid_package_still_reports_it(self):
-        """The complement of the fabrication tests: the ONLY discovery a
-        caller can obtain for this package is a truthful one, and a truthful
-        one still fails. There is no constructible input to run_id_validation
-        that names this package and reports it clean."""
+        """A truthful discovery of this package still fails — so the vacuous
+        pass above requires actively asserting a falsehood, not merely
+        calling the internals."""
         import boe_files
 
         real = boe_files.discover_package(self.INVALID_PKG)
@@ -1494,64 +1542,6 @@ class TestValidationContextIsSelfConsistent:
             schema_dir=SCHEMA_DIR, verbose=False,
         )
         assert not passed and errors
-
-    def test_a_real_discovery_does_not_hand_out_the_proof_token(self):
-        """Caught by the local CodeRabbit pass on this response: the token
-        was first written as a stored field, so `discovery.token` returned
-        `_WALK_TOKEN` — and every validator holds real discoveries, making
-        the guarantee self-defeating. It is an InitVar now: consumed at
-        construction, never stored."""
-        import boe_files
-
-        real = boe_files.discover_package(self.INVALID_PKG)
-        assert _WALK_TOKEN_NAME not in vars(real), (
-            f"'{_WALK_TOKEN_NAME}' must not be stored on a discovery instance"
-        )
-        # The InitVar's declared default leaves a class attribute behind, so
-        # the attribute resolves — what matters is that it is NOT the token.
-        assert getattr(real, _WALK_TOKEN_NAME, None) is not boe_files._WALK_TOKEN, (
-            "PackageDiscovery must not expose the proof-of-walk token — any "
-            "holder of a real discovery could read it and forge one"
-        )
-        # Not just the field it was declared as: the token must not be
-        # reachable through ANY stored attribute, whatever it is called.
-        assert all(v is not boe_files._WALK_TOKEN for v in vars(real).values()), (
-            f"The proof-of-walk token is reachable via "
-            f"{[k for k, v in vars(real).items() if v is boe_files._WALK_TOKEN]}"
-        )
-        # And the forgery that would enable is still refused.
-        with pytest.raises(ValueError, match="must be built by discover_package"):
-            boe_files.PackageDiscovery(
-                root=self.INVALID_PKG, documents=(), manifest=None,
-                root_is_symlink=False, internal_symlinks=(), traversal_errors=(),
-                token=getattr(real, _WALK_TOKEN_NAME, None),
-            )
-
-    def test_manifest_entry_pointing_at_a_non_entity_path_fails_closed(self, tmp_path):
-        """A manifest entry whose path exists but is not a discovered entity
-        document (here: the manifest itself) must be reported, not skipped.
-        Reading such a path used to be attempted directly, so a failure
-        silently bypassed the id/version_id checks — fail-open. Also caught
-        by the local CodeRabbit pass on this response."""
-        pkg = tmp_path / "harbour-tender-inquiry"
-        shutil.copytree(FIXTURES / "valid" / "harbour-tender-inquiry", pkg)
-        manifest_path = pkg / "package.yaml"
-        manifest = yaml.safe_load(manifest_path.read_text())
-        manifest["entities"].append({
-            "id": "boe:claim:01JQ0000000000000000000000",
-            "version_id": "01JQV000000000000000000000",
-            "path": "package.yaml",
-        })
-        manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False))
-
-        passed, errors = run_reference_validation(
-            context=ValidationContext.for_paths([pkg]), schema_dir=SCHEMA_DIR, verbose=False
-        )
-        assert not passed
-        assert any(
-            e.code == "MANIFEST_PATH_NOT_AN_ENTITY" and e.location == "package.yaml"
-            for e in errors
-        ), f"Expected MANIFEST_PATH_NOT_AN_ENTITY for the package.yaml entry, got: {errors}"
 
     def test_context_rejects_duplicate_roots(self):
         """A root listed twice would validate the package twice and report
@@ -1569,6 +1559,121 @@ class TestValidationContextIsSelfConsistent:
 
         with pytest.raises(TypeError, match="must be a tuple"):
             ValidationContext(discoveries=[boe_files.discover_package(self.INVALID_PKG)])
+
+
+class TestValidatorsCannotCorruptEachOther:
+    """H-24 (twelfth-round feedback). D-026 gave every validator a SHARED
+    parsed `dict` and claimed they "necessarily inspect the same bytes". The
+    reviewer took a genuine discovery of a known-invalid package, changed one
+    `version_id` in that shared dict, and turned a failing package into a
+    passing one — so the shared object made validators LESS isolated than
+    re-reading had, not more.
+
+    Documents now hold raw bytes plus a digest, and `parse()` builds a fresh
+    object graph per call. The guarantee is stated as: one filesystem read
+    per document per run, every validator parsing identical bytes, and no
+    validator able to affect another's view."""
+
+    INVALID_PKG = FIXTURES / "invalid" / "duplicate-version-id"
+
+    def test_mutating_parsed_output_cannot_change_a_later_result(self):
+        """The reviewer's exact probe. Mutating what one caller gets back
+        must not alter what the next caller sees."""
+        context = ValidationContext.for_paths([self.INVALID_PKG])
+        assert not run_id_validation(
+            context=context, schema_dir=SCHEMA_DIR, verbose=False
+        )[0], "Baseline: this package must fail"
+
+        mutated = 0
+        for _path, data in context.entities():
+            if "version_id" in data:
+                data["version_id"] = "01JQV" + "0" * 21
+                mutated += 1
+        assert mutated >= 2, "Probe must actually have mutated the duplicates"
+
+        passed, errors = run_id_validation(
+            context=context, schema_dir=SCHEMA_DIR, verbose=False
+        )
+        assert not passed and errors, (
+            "Mutating one caller's parsed output changed a later validation "
+            "result — validators are sharing a mutable object graph"
+        )
+
+    def test_each_parse_returns_an_independent_object_graph(self):
+        context = ValidationContext.for_paths([self.INVALID_PKG])
+        doc = context.documents()[0]
+        first, _ = doc.parse()
+        second, _ = doc.parse()
+        assert first == second and first is not second, (
+            "parse() must return an equal but distinct object each call"
+        )
+        first["injected"] = True
+        third, _ = doc.parse()
+        assert "injected" not in third
+
+    def test_every_document_carries_a_digest_of_what_was_read(self):
+        """`digest` is what makes "all validators parsed the same bytes"
+        checkable rather than asserted, and is the hook D-016 needs to verify
+        that what gets published is what was validated."""
+        import hashlib
+
+        context = ValidationContext.for_paths([self.INVALID_PKG])
+        for doc in context.documents():
+            assert doc.raw is not None and doc.read_error is None
+            assert doc.digest == hashlib.sha256(doc.raw).hexdigest()
+            assert doc.digest == hashlib.sha256(doc.path.read_bytes()).hexdigest()
+
+
+class TestSupportedCliEntryPoints:
+    """H-24/M-31: the D-026 signature change left four `python3
+    scripts/validate_*.py` runners crashing on startup, undetected because
+    nothing executed them. Those runners are gone — validate.py is the only
+    entry point — and these tests execute every supported invocation as a
+    real subprocess so a signature change cannot silently break one again."""
+
+    VALIDATE_PY = REPO_ROOT / "scripts" / "validate.py"
+
+    def _run(self, *args):
+        return subprocess.run(
+            [sys.executable, str(self.VALIDATE_PY), *args],
+            capture_output=True, text=True, cwd=REPO_ROOT, check=False,
+        )
+
+    @pytest.mark.parametrize("check", [*[c for c in ["schema", "ids", "references",
+                                                     "orphans", "provenance"]], "all"])
+    def test_every_check_runs_standalone_against_a_valid_package(self, check):
+        r = self._run("--check", check, "--root", str(FIXTURES / "valid"))
+        assert r.returncode == 0, f"--check {check} failed:\n{r.stdout}\n{r.stderr}"
+        assert "Traceback" not in r.stderr
+
+    @pytest.mark.parametrize("check", ["schema", "ids", "references", "orphans", "provenance"])
+    def test_every_check_runs_standalone_against_invalid_packages(self, check):
+        """Non-zero exit is the expected outcome here; a crash is not."""
+        r = self._run("--check", check, "--root", str(FIXTURES / "invalid"))
+        assert r.returncode == 1, f"--check {check} should fail:\n{r.stdout}"
+        assert "Traceback" not in r.stderr, f"--check {check} crashed:\n{r.stderr}"
+
+    @pytest.mark.parametrize("module,check", [
+        ("validate_schema", "schema"), ("validate_ids", "ids"),
+        ("validate_references", "references"), ("validate_orphans", "orphans"),
+        ("validate_provenance", "provenance"),
+    ])
+    def test_validator_modules_refuse_to_run_as_clis(self, module, check):
+        """The per-validator runners must stay gone — each duplicated package
+        discovery with a weaker `p.is_dir()` filter (D-023/H-22's
+        dangling-symlink blindness) and had no empty-run guard. They refuse
+        LOUDLY rather than being deleted outright: simply removing the
+        `__main__` block left these commands exiting 0 in silence, which is
+        worse than the crash M-31 reported, not better."""
+        r = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / f"{module}.py")],
+            capture_output=True, text=True, cwd=REPO_ROOT, check=False,
+        )
+        assert r.returncode != 0, f"{module}.py must not exit 0 when run directly"
+        assert "Traceback" not in r.stderr, f"{module}.py crashed:\n{r.stderr}"
+        assert f"--check {check}" in r.stderr, (
+            f"{module}.py must point at the supported command; got:\n{r.stderr}"
+        )
 
 
 class TestDiscoveryIsGenuinelyImmutable:
@@ -1594,9 +1699,7 @@ class TestDiscoveryIsGenuinelyImmutable:
             value.clear()
 
     def test_constructing_with_a_list_is_rejected(self):
-        """Reaches past the proof-of-walk token (see
-        TestValidationContextIsSelfConsistent) to test the layer beneath it:
-        a future factory change that produced lists would be caught here
+        """A future factory change that produced lists would be caught here
         rather than silently reintroducing mutable state."""
         import boe_files
 
@@ -1605,7 +1708,6 @@ class TestDiscoveryIsGenuinelyImmutable:
                 root=FIXTURES / "valid" / "harbour-tender-inquiry",
                 documents=[], manifest=None, root_is_symlink=False,
                 internal_symlinks=(), traversal_errors=(),
-                token=boe_files._WALK_TOKEN,
             )
 
     def test_symlinked_root_discovery_must_be_empty(self):
@@ -1618,7 +1720,6 @@ class TestDiscoveryIsGenuinelyImmutable:
             boe_files.PackageDiscovery(
                 root=real.root, documents=real.documents, manifest=None,
                 root_is_symlink=True, internal_symlinks=(), traversal_errors=(),
-                token=boe_files._WALK_TOKEN,
             )
 
 

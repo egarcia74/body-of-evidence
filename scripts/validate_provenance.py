@@ -104,14 +104,16 @@ def run_provenance_validation(
     return len(all_errors) == 0, all_errors
 
 
+# This module is not a CLI. `scripts/validate.py` is the only entry point;
+# each of these modules used to carry its own runner that re-implemented
+# package discovery as `p.is_dir()` — weaker than validate.py's
+# `p.is_symlink() or p.is_dir()`, i.e. carrying the exact dangling-symlink
+# blindness D-023/H-22 fixed — and had no empty-run guard, so it could report
+# success having validated nothing. The D-026 signature change left four of
+# them crashing on startup for a whole commit because nothing executed them
+# (D-027/M-31). Refusing loudly beats both a crash and a silent exit 0.
 if __name__ == "__main__":
-    import sys
-    repo_root = Path(__file__).parent.parent
-    inv_paths = [
-        p for p in (repo_root / "investigations").iterdir()
-        if p.is_dir() and not p.name.startswith("_")
-    ]
-    passed, errors = run_provenance_validation(inv_paths, repo_root / "schema", verbose=True)
-    for e in errors:
-        print(f"ERROR: {e}")
-    sys.exit(0 if passed else 1)
+    raise SystemExit(
+        "validate_provenance.py is not a command-line entry point.\n"
+        "Run:  python3 scripts/validate.py --check provenance [--root DIR]"
+    )

@@ -7,11 +7,12 @@ treated identically everywhere. (A .yml file that bypasses semantic
 validation is a validation hole.)
 """
 
+import hashlib
 import os
-from dataclasses import InitVar, dataclass
+from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Iterator, Tuple
+from typing import Iterator
 
 import yaml
 
@@ -94,38 +95,42 @@ def _walk_package(inv_path: Path) -> tuple[list[Path], list[Path], list[OSError]
 @dataclass(frozen=True)
 class DiscoveredDocument:
     """
-    One YAML document read exactly ONCE per validation run, together with
-    the outcome of parsing it. Every validator that needs this file's
-    content consumes THIS object rather than re-opening the path
-    (eleventh-pass review M-29).
+    One document's RAW BYTES, read exactly once per validation run, with a
+    SHA-256 digest of what was read.
 
-    Reading once is not merely an I/O saving. When five validators each
-    re-open the same path, they can legitimately observe five different
-    versions of the file, so "the package that passed schema validation"
-    and "the package that passed reference validation" need not be the
-    same bytes. Parsing once removes that divergence between validators.
+    What this guarantees, precisely (H-24 — an earlier version of this class
+    held a single parsed `dict` shared by every validator and claimed they
+    "necessarily inspect the same bytes"; a reviewer mutated one validator's
+    view of that dict and turned a failing package into a passing one, which
+    made the shared object WORSE than re-reading, not better):
 
-    Exactly one of `data`/`error` is meaningful: `error` is a human-readable
-    parse/IO failure message (and `data` is then None), `data` is the parsed
-    mapping (None for an empty document, which is not an error). Validators
-    that only care about well-formed entities skip anything with an `error`
-    or no `data`; `validate_schema` is the one that reports the parse error
-    itself, which is why the error is carried here rather than dropped.
+      - ONE filesystem read per document per run. Five validators cannot
+        observe five different versions of a file mid-run.
+      - Every validator parses THE SAME BYTES, and `digest` makes that
+        checkable rather than merely asserted.
+      - `parse()` builds a FRESH object graph on every call, so one
+        validator mutating what it got back cannot corrupt another's view.
+        Isolation is by construction; it does not depend on validators
+        promising not to mutate.
+
+    What it does NOT guarantee: that `raw` still matches the file on disk.
+    The read already happened; a later write is invisible here. `digest`
+    exists so that D-016's Edition work can eventually verify that what was
+    published is what was validated — the honest place to close that.
     """
 
     path: Path
-    data: dict | None
-    error: str | None
+    raw: bytes | None
+    digest: str | None
+    read_error: str | None
 
-
-_WALK_TOKEN = object()
-"""Private proof-of-walk. `discover_package` is the only holder, so the only
-way to obtain a PackageDiscovery is to have actually walked the filesystem
-(eleventh-pass review H-23): a caller cannot hand a validator a fabricated
-discovery asserting that a package is empty, or that it contains something
-it does not. Staleness is deliberately NOT covered by this — a discovery
-produced by a real walk and used later is legitimately obtainable, and
-closing that gap needs content digests re-checked at publication (D-016)."""
+    def parse(self) -> tuple[dict | None, str | None]:
+        """(data, error) parsed fresh from the captured bytes. Returns a NEW
+        object graph each call — callers may mutate what they receive without
+        affecting any other caller."""
+        if self.read_error is not None:
+            return None, self.read_error
+        return parse_yaml_bytes(self.raw, self.path)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -137,27 +142,37 @@ class PackageDiscovery:
     `find_traversal_errors` previously each walked the same tree
     independently — three passes of I/O over the same directories).
 
-    This is an ENUMERATION-AND-CONTENT snapshot of one package, but NOT a
-    guarantee about the filesystem: the walk and the reads are separate
-    syscalls, so a file can still change between being enumerated and being
-    read (eleventh-pass review M-29 — an earlier version of this docstring
-    claimed collapsing the walks closed the time-of-check/time-of-use gap,
-    which it did not). What it does guarantee is that every validator in a
-    run sees the SAME enumeration and the SAME bytes as each other. Closing
-    the remaining gap against the filesystem needs content digests captured
-    at read time and re-checked at publication — deliberately deferred to
-    D-016's Edition work, which has to define what a released package's
-    authoritative bytes ARE before anything can verify them.
+    This is an ENUMERATION-AND-READ snapshot of one package, NOT a guarantee
+    about the filesystem: the walk and the reads are separate syscalls, so a
+    file can change between being enumerated and being read, and can change
+    again afterwards (eleventh-pass review M-29 — an earlier version of this
+    docstring claimed collapsing the walks closed the time-of-check/
+    time-of-use gap, which it did not). What it guarantees is one walk and
+    one read per document per run, and that every validator parses identical
+    bytes. Closing the gap against the filesystem needs the captured digests
+    re-checked at publication — deferred to D-016's Edition work, which has
+    to define what a released package's authoritative bytes ARE first.
+
+    **This type is INTERNAL** (H-24). It is not an access-control boundary
+    and must not be described as one: any in-process caller can construct
+    one, and Python offers no way to prevent that. An earlier version tried,
+    via a module-private "proof-of-walk" token; a reviewer imported
+    `boe_files._WALK_TOKEN` — underscores are a convention, not enforcement
+    — built an empty discovery for a known-invalid package and got a clean
+    pass. The supported entry point is `validate.validate_paths(paths)`,
+    which constructs its own context; everything here is implementation
+    detail behind it, and the integrity guarantees this project makes are
+    about THAT surface, not about resisting an adversary already executing
+    in the same interpreter.
 
     `root_is_symlink=True` means the walk never happened at all (a symlinked
     root is rejected before descending into it); the other fields are then
     always empty/None, not merely unpopulated.
 
-    All collection fields are tuples, and __post_init__ rejects anything
-    else. `frozen=True` only prevents field REASSIGNMENT — it does not
-    freeze a list stored in a field, and the eleventh-pass review
-    demonstrated exactly that by calling `.clear()` on a discovery's file
-    list after construction.
+    The remaining __post_init__ checks are self-consistency guards against
+    programming error — a future factory bug producing a discovery whose
+    contents don't belong to its root, or reintroducing mutable lists — not
+    security controls.
     """
 
     root: Path
@@ -166,21 +181,8 @@ class PackageDiscovery:
     root_is_symlink: bool
     internal_symlinks: tuple[Path, ...]
     traversal_errors: tuple[OSError, ...]
-    token: InitVar[object] = None
 
-    def __post_init__(self, token):
-        # InitVar, not a field: the token is consumed here and never stored,
-        # so `some_discovery.token` cannot hand _WALK_TOKEN to a caller who
-        # would then be able to forge one (caught by the local CodeRabbit
-        # pass on this response — as a stored field it made the guarantee
-        # self-defeating, since every validator holds real discoveries).
-        if token is not _WALK_TOKEN:
-            raise ValueError(
-                "PackageDiscovery must be built by discover_package — a "
-                "discovery that did not come from an actual filesystem walk "
-                "can assert anything about a package, including that a "
-                "known-invalid one is empty (H-23)"
-            )
+    def __post_init__(self):
         for name in ("documents", "internal_symlinks", "traversal_errors"):
             value = getattr(self, name)
             if not isinstance(value, tuple):
@@ -189,10 +191,9 @@ class PackageDiscovery:
                     f"{type(value).__name__} — mutable collections in a "
                     f"frozen dataclass are not immutable (M-29)"
                 )
-        # A discovery whose contents don't belong to its own root is a
-        # self-inconsistent validation input — the exact hole H-23
-        # demonstrated at the ValidationContext level, closed here at the
-        # level where a hand-built object could otherwise smuggle it in.
+        # A discovery whose contents don't belong to its own root is
+        # self-inconsistent. This catches a factory bug, not an adversary
+        # (see the class docstring on why no in-process check could).
         for path in tuple(d.path for d in self.documents) + self.internal_symlinks:
             if not path.is_relative_to(self.root):
                 raise ValueError(
@@ -220,7 +221,7 @@ def discover_package(inv_path: Path) -> PackageDiscovery:
     if inv_path.is_symlink():
         return PackageDiscovery(
             root=inv_path, documents=(), manifest=None, root_is_symlink=True,
-            internal_symlinks=(), traversal_errors=(), token=_WALK_TOKEN,
+            internal_symlinks=(), traversal_errors=(),
         )
     files, symlinks, errors = _walk_package(inv_path)
     entity_files = sorted(
@@ -232,13 +233,25 @@ def discover_package(inv_path: Path) -> PackageDiscovery:
     return PackageDiscovery(
         root=inv_path, documents=documents, manifest=manifest, root_is_symlink=False,
         internal_symlinks=tuple(sorted(symlinks)), traversal_errors=tuple(errors),
-        token=_WALK_TOKEN,
     )
 
 
 def _read_document(path: Path) -> DiscoveredDocument:
-    data, error = load_yaml(path)
-    return DiscoveredDocument(path=path, data=data, error=error)
+    """Read one document's bytes once and digest them. Parsing is deferred
+    to DiscoveredDocument.parse(), which builds a fresh object graph per
+    call so validators cannot corrupt each other's view (H-24)."""
+    try:
+        raw = path.read_bytes()
+    except OSError as e:
+        # A broken symlink or permissions failure must become a diagnostic,
+        # not an uncaught crash of the whole run (see load_yaml).
+        return DiscoveredDocument(
+            path=path, raw=None, digest=None,
+            read_error=f"{path}: Could not read file: {e}",
+        )
+    return DiscoveredDocument(
+        path=path, raw=raw, digest=hashlib.sha256(raw).hexdigest(), read_error=None,
+    )
 
 
 @dataclass(frozen=True)
@@ -325,14 +338,17 @@ class ValidationContext:
             key=lambda doc: doc.path,
         )
 
-    def entities(self) -> Iterator[Tuple[Path, dict]]:
+    def entities(self) -> Iterator[tuple[Path, dict]]:
         """(path, data) for every parseable, non-empty entity document —
         the iteration path for validators that only inspect well-formed
-        entities. No filesystem access: the content was read once at
-        discovery."""
+        entities. No filesystem access: the bytes were read once at
+        discovery. Each call re-parses those bytes, so the mapping a caller
+        receives is its own and mutating it cannot affect any other
+        validator (H-24)."""
         for doc in self.documents():
-            if doc.data is not None and doc.error is None:
-                yield doc.path, doc.data
+            data, error = doc.parse()
+            if data is not None and error is None:
+                yield doc.path, data
 
     @cached_property
     def _documents_by_path(self) -> dict[Path, DiscoveredDocument]:
@@ -500,12 +516,11 @@ def find_all_symlinks(investigation_paths: list[Path]) -> list[Path]:
     return sorted(found)
 
 
-def load_yaml(path: Path) -> Tuple[dict | None, str | None]:
-    """
-    Load a YAML file. Returns (data, error).
-    Rejects duplicate keys — silent duplicate-key overwrites are a data
-    integrity hazard in hand-authored evidence files.
-    """
+def _strict_loader():
+    """A SafeLoader that rejects duplicate keys — silent duplicate-key
+    overwrites are a data integrity hazard in hand-authored evidence files.
+    Built per call so the constructor registration cannot leak into
+    yaml.SafeLoader itself."""
 
     class StrictLoader(yaml.SafeLoader):
         pass
@@ -522,23 +537,54 @@ def load_yaml(path: Path) -> Tuple[dict | None, str | None]:
     StrictLoader.add_constructor(
         yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicates
     )
+    return StrictLoader
 
+
+def load_yaml(path: Path) -> tuple[dict | None, str | None]:
+    """
+    Load a YAML file directly from disk. Returns (data, error).
+
+    Retained for the find_* primitives and for direct callers; the
+    validation pipeline goes through DiscoveredDocument.parse() instead, so
+    that a document is READ once per run even though it is parsed per
+    validator.
+    """
     try:
         with open(path) as f:
-            data = yaml.load(f, Loader=StrictLoader)
-    except yaml.YAMLError as e:
-        return None, f"{path}: YAML error: {e}"
+            source = f.read()
     except OSError as e:
         # A broken symlink (or a permissions/IO failure) must become a
         # diagnostic, not an uncaught crash of the whole validation run
         # (sixth-pass review H-19).
         return None, f"{path}: Could not read file: {e}"
+    return _parse_yaml(source, path)
+
+
+def parse_yaml_bytes(raw: bytes, path: Path) -> tuple[dict | None, str | None]:
+    """Parse already-read bytes, with identical semantics to load_yaml —
+    the entry point DiscoveredDocument.parse() uses, so bytes captured once
+    at discovery and a direct file read cannot diverge in how they are
+    interpreted (H-24)."""
+    try:
+        source = raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        return None, f"{path}: Could not decode file as UTF-8: {e}"
+    return _parse_yaml(source, path)
+
+
+def _parse_yaml(source: str, path: Path) -> tuple[dict | None, str | None]:
+    """The single YAML parsing implementation. Returns a NEW object graph
+    on every call — never a cached or shared one."""
+    try:
+        data = yaml.load(source, Loader=_strict_loader())
+    except yaml.YAMLError as e:
+        return None, f"{path}: YAML error: {e}"
     if data is not None and not isinstance(data, dict):
         return None, f"{path}: Expected a mapping at the root level"
     return data, None
 
 
-def iter_entities(investigation_paths: list[Path]) -> Iterator[Tuple[Path, dict]]:
+def iter_entities(investigation_paths: list[Path]) -> Iterator[tuple[Path, dict]]:
     """Yield (path, data) for every parseable entity file."""
     for path in find_entity_files(investigation_paths):
         data, error = load_yaml(path)

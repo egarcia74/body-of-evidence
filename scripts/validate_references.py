@@ -386,9 +386,10 @@ def validate_manifest(discovery: PackageDiscovery, context: ValidationContext):
             f"{inv_path}: Missing package.yaml manifest — a package without a "
             f"manifest has no defined current state (see D-012)"
         )], {}
-    manifest_path, data = discovery.manifest.path, discovery.manifest.data
-    if discovery.manifest.error:
-        return [_err("YAML_PARSE_ERROR", manifest_path, discovery.manifest.error)], {}
+    manifest_path = discovery.manifest.path
+    data, manifest_error = discovery.manifest.parse()
+    if manifest_error:
+        return [_err("YAML_PARSE_ERROR", manifest_path, manifest_error)], {}
     if not data:
         return [_err("MANIFEST_EMPTY", manifest_path, f"{manifest_path}: Manifest is empty")], {}
 
@@ -476,9 +477,9 @@ def validate_manifest(discovery: PackageDiscovery, context: ValidationContext):
                     f"version_id can be checked against the entry", path
                 ))
                 continue
-            if listed_document.error or not listed_document.data:
+            file_data, listed_error = listed_document.parse()
+            if listed_error or not file_data:
                 continue  # parse errors are reported by schema validation
-            file_data = listed_document.data
             if eid and file_data.get("id") != eid:
                 errors.append(_err(
                     "MANIFEST_ENTRY_ID_MISMATCH", manifest_path,
@@ -693,16 +694,16 @@ def run_reference_validation(
     return len(all_errors) == 0, all_errors
 
 
+# This module is not a CLI. `scripts/validate.py` is the only entry point;
+# each of these modules used to carry its own runner that re-implemented
+# package discovery as `p.is_dir()` — weaker than validate.py's
+# `p.is_symlink() or p.is_dir()`, i.e. carrying the exact dangling-symlink
+# blindness D-023/H-22 fixed — and had no empty-run guard, so it could report
+# success having validated nothing. The D-026 signature change left four of
+# them crashing on startup for a whole commit because nothing executed them
+# (D-027/M-31). Refusing loudly beats both a crash and a silent exit 0.
 if __name__ == "__main__":
-    import sys
-    repo_root = Path(__file__).parent.parent
-    inv_paths = [
-        p for p in (repo_root / "investigations").iterdir()
-        if p.is_dir() and not p.name.startswith("_")
-    ]
-    passed, errors = run_reference_validation(
-        ValidationContext.for_paths(inv_paths), repo_root / "schema", verbose=True
+    raise SystemExit(
+        "validate_references.py is not a command-line entry point.\n"
+        "Run:  python3 scripts/validate.py --check references [--root DIR]"
     )
-    for e in errors:
-        print(f"ERROR: {e}")
-    sys.exit(0 if passed else 1)

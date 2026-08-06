@@ -97,7 +97,8 @@ def run_schema_validation(
 
     # Entity files
     for document in context.documents():
-        yaml_file, data, error = document.path, document.data, document.error
+        yaml_file = document.path
+        data, error = document.parse()
         if error:
             all_errors.append(_err("YAML_PARSE_ERROR", yaml_file, error))
             continue
@@ -128,9 +129,10 @@ def run_schema_validation(
     for discovery in context.discoveries:
         if discovery.manifest is None:
             continue
-        manifest_path, data = discovery.manifest.path, discovery.manifest.data
-        if discovery.manifest.error:
-            all_errors.append(_err("YAML_PARSE_ERROR", manifest_path, discovery.manifest.error))
+        manifest_path = discovery.manifest.path
+        data, manifest_error = discovery.manifest.parse()
+        if manifest_error:
+            all_errors.append(_err("YAML_PARSE_ERROR", manifest_path, manifest_error))
             continue
         if data is None or package_schema is None:
             continue
@@ -146,14 +148,16 @@ def run_schema_validation(
     return len(all_errors) == 0, all_errors
 
 
+# This module is not a CLI. `scripts/validate.py` is the only entry point;
+# each of these modules used to carry its own runner that re-implemented
+# package discovery as `p.is_dir()` — weaker than validate.py's
+# `p.is_symlink() or p.is_dir()`, i.e. carrying the exact dangling-symlink
+# blindness D-023/H-22 fixed — and had no empty-run guard, so it could report
+# success having validated nothing. The D-026 signature change left four of
+# them crashing on startup for a whole commit because nothing executed them
+# (D-027/M-31). Refusing loudly beats both a crash and a silent exit 0.
 if __name__ == "__main__":
-    import sys
-    repo_root = Path(__file__).parent.parent
-    inv_paths = [
-        p for p in (repo_root / "investigations").iterdir()
-        if p.is_dir() and not p.name.startswith("_")
-    ]
-    passed, errors = run_schema_validation(inv_paths, repo_root / "schema", verbose=True)
-    for e in errors:
-        print(f"ERROR: {e}")
-    sys.exit(0 if passed else 1)
+    raise SystemExit(
+        "validate_schema.py is not a command-line entry point.\n"
+        "Run:  python3 scripts/validate.py --check schema [--root DIR]"
+    )

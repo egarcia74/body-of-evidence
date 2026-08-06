@@ -62,8 +62,8 @@ def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool, checks: d
     package" was true per validator call, not true for a full run).
 
     Sharing the context is also what makes all five checks inspect the same
-    bytes: the context carries parsed document content, so no validator
-    re-opens a path another validator already read (eleventh-pass M-29).
+    bytes: the context carries each document's bytes, read once, so no
+    validator re-opens a path another validator already read (M-29).
     """
     context = ValidationContext.for_paths(paths)
     results = {}
@@ -74,6 +74,26 @@ def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool, checks: d
         if not passed:
             all_passed = False
     return all_passed, results
+
+
+def validate_paths(paths: list[Path], schema_dir: Path, verbose: bool = False,
+                   checks: dict | None = None) -> tuple[bool, dict]:
+    """
+    **The supported programmatic entry point** — validate these package
+    roots and return (all_passed, results).
+
+    It takes PATHS and nothing else. `ValidationContext`, `PackageDiscovery`
+    and `DiscoveredDocument` are internal implementation details built here;
+    there is deliberately no parameter through which a caller can supply
+    validation state (H-24). An earlier design tried to make internal state
+    unforgeable with a module-private token, which a reviewer defeated by
+    importing it — Python has no in-process access control, so the trust
+    boundary is drawn at this function's signature instead of pretended at
+    a lower level. Anything that reaches past this into `boe_files` is
+    outside what this project makes integrity claims about, and is subject
+    to change without notice.
+    """
+    return run_all_checks(paths, schema_dir, verbose, checks or CHECKS)
 
 
 def print_results(results: dict):
