@@ -1643,12 +1643,14 @@ class TestYamlLoadingIsSafe:
     treats as a data-integrity hazard in hand-authored evidence files.
 
     Static analysis flags any `yaml.load` as unsafe (Bandit B506). The
-    suppression in boe_files.py points at THIS class, so the claim it makes is
-    checked rather than asserted in a comment."""
+    `# nosec` comment in boe_files.py points at THIS class so its reasoning is
+    checked rather than merely asserted — note that Codacy's hosted Bandit
+    does NOT honour that inline suppression, so the finding is dismissed in
+    Codacy's UI instead; these tests are what make that dismissal auditable
+    from the repository."""
 
     def test_strict_loader_is_a_safe_loader(self):
         import boe_files
-        import yaml
 
         assert issubclass(boe_files._strict_loader(), yaml.SafeLoader)
 

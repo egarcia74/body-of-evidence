@@ -612,6 +612,9 @@ def _parse_yaml(source: str, path: Path) -> tuple[dict | None, str | None]:
     on every call — never a cached or shared one."""
     try:
         # nosec B506 -- NOT unsafe_load: _strict_loader() returns a subclass
+        # (Codacy's hosted Bandit does not honour this inline marker; the
+        # finding is dismissed in its UI, and TestYamlLoadingIsSafe is what
+        # keeps that dismissal honest.)
         # of yaml.SafeLoader (verified by test_strict_loader_is_a_safe_loader),
         # so arbitrary-object tags are rejected. A custom Loader is required
         # here to reject duplicate keys, which yaml.safe_load cannot do.
