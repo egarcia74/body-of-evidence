@@ -90,7 +90,7 @@ A primary or secondary document, recording, or artefact from which evidence is e
 
 **Package Manifest** — `package.yaml` in each investigation: declares which entity versions are current, the schema and methodology versions, dependencies, and maintainers. The single source of truth for current state.
 
-**Edition** *(designed, not implemented)* — An immutable, content-addressed release of one investigation package: `boe:edition:<ulid>`, carrying the exact `version_id` and byte digest of every entity in the release, plus the digest of its parent Edition. Compiled from the working head at release time. See "The D-016 design" in DECISIONS.md. **No Edition exists yet and no tooling produces one.**
+**Edition** *(designed, not implemented)* — An immutable release of one investigation package. Two distinct fields, deliberately not conflated: `edition_id` is `boe:edition:<ulid>`, an **opaque identity** that follows the same grammar as every other `boe:` ID and says nothing about content; `content_digest` is a **SHA-256 over the Edition's RFC 8785 canonical JSON**, and is what binds that identity to specific bytes. An Edition lists the exact `version_id` and byte digest of every entity in the release, and records its parent Edition's id and digest — for the first (genesis) Edition of a package both parent fields are serialised as JSON `null`. Compiled from the working head at release time. See "The D-016 design" in DECISIONS.md. **No Edition exists yet and no tooling produces one.**
 
 **Working head** *(designed, not implemented)* — What `package.yaml` becomes once Editions exist: the mutable current authoring state, as distinct from an immutable released Edition. Today `package.yaml` is still both.
 

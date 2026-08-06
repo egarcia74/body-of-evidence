@@ -25,7 +25,10 @@ Backwards-compatible additions to schema or platform capabilities. A `MINOR` bum
 - New optional fields added to existing entity types
 - New entity types added
 - New tools, scripts, or platform features
-- New investigations published (investigations are platform content, not schema)
+- ~~New investigations published~~ — **no longer a MINOR trigger.** Publishing investigation content does not
+  version the platform; a package carries its own `release_version` (see Release Tags below). Coupling them
+  would force a platform release for every investigation. Changed 2026-08-06 with D-016; nothing depended on
+  the old rule, because no investigations are published yet.
 
 Existing valid entity files continue to validate against the new schema.
 

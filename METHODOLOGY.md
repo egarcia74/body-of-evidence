@@ -134,7 +134,7 @@ Every entity has a stable `id` and a per-version `version_id`. Which version is 
 
 This means the historical record of what was concluded, and when, is always intact — and "superseded" is a fact about the release, never an edit to the past.
 
-*(D-016, accepted 2026-08-06: once immutable Editions exist, step 4 updates the mutable **working head** and publishing an Edition becomes the release act, so "the release" gains a concrete artifact rather than meaning "whatever the manifest currently says." The design is accepted; the mechanism is NOT built, so the five steps above are correct as written today. See "The D-016 design" in DECISIONS.md.)* (Methodology v0.1 instructed contributors to update the old entity's status to `superseded`; that was itself a mutation of the historical record and was corrected in v0.2.)
+*(D-016, accepted 2026-08-06: once immutable Editions exist, step 4 updates the mutable **working head** and publishing an Edition becomes the release act, so "the release" gains a concrete artifact rather than meaning "whatever the manifest currently says." An Edition snapshots the manifest's `release_version`, `schema_version` and `methodology_version` at publication: `package.yaml` stays authoritative for the working head, while the Edition's copies are authoritative for that released artifact. The design is accepted; the mechanism is NOT built, so the five steps above are correct as written today. See "The D-016 design" in DECISIONS.md.)* (Methodology v0.1 instructed contributors to update the old entity's status to `superseded`; that was itself a mutation of the historical record and was corrected in v0.2.)
 
 ---
 
