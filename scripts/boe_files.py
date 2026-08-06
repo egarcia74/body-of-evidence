@@ -550,14 +550,17 @@ def load_yaml(path: Path) -> tuple[dict | None, str | None]:
     validator.
     """
     try:
-        with open(path) as f:
-            source = f.read()
+        raw = path.read_bytes()
     except OSError as e:
         # A broken symlink (or a permissions/IO failure) must become a
         # diagnostic, not an uncaught crash of the whole validation run
         # (sixth-pass review H-19).
         return None, f"{path}: Could not read file: {e}"
-    return _parse_yaml(source, path)
+    # Bytes, then parse_yaml_bytes — NOT open(path), whose default encoding
+    # is locale-dependent. Reading text here would make this function and the
+    # discovery path decode the same file differently on a non-UTF-8 locale,
+    # which is precisely the divergence D-027 claims cannot happen.
+    return parse_yaml_bytes(raw, path)
 
 
 def parse_yaml_bytes(raw: bytes, path: Path) -> tuple[dict | None, str | None]:

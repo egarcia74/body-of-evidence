@@ -77,23 +77,38 @@ def run_all_checks(paths: list[Path], schema_dir: Path, verbose: bool, checks: d
 
 
 def validate_paths(paths: list[Path], schema_dir: Path, verbose: bool = False,
-                   checks: dict | None = None) -> tuple[bool, dict]:
+                   checks: dict | None = None,
+                   allow_empty: bool = False) -> tuple[bool, dict]:
     """
     **The supported programmatic entry point** — validate these package
     roots and return (all_passed, results).
 
-    It takes PATHS and nothing else. `ValidationContext`, `PackageDiscovery`
-    and `DiscoveredDocument` are internal implementation details built here;
-    there is deliberately no parameter through which a caller can supply
-    validation state (H-24). An earlier design tried to make internal state
-    unforgeable with a module-private token, which a reviewer defeated by
-    importing it — Python has no in-process access control, so the trust
-    boundary is drawn at this function's signature instead of pretended at
-    a lower level. Anything that reaches past this into `boe_files` is
-    outside what this project makes integrity claims about, and is subject
-    to change without notice.
+    It takes PATHS, plus which `checks` to run and whether an empty run is
+    intentional. It does NOT take validation state: `ValidationContext`,
+    `PackageDiscovery` and `DiscoveredDocument` are internal implementation
+    details built here, and there is no parameter through which a caller
+    could supply one (H-24). An earlier design tried to make that internal
+    state unforgeable with a module-private token, which a reviewer defeated
+    by importing it — Python has no in-process access control, so the trust
+    boundary is drawn at this signature rather than pretended at a lower
+    level. Anything reaching past this into `boe_files` is outside what this
+    project makes integrity claims about, and may change without notice.
+
+    Fails closed on an empty run unless `allow_empty=True` (invariant 10:
+    validation must never be vacuous). `checks` selects which validators
+    run, so an empty selection is an empty run too — a supported API that
+    returned "passed" for validating nothing would reintroduce, at the very
+    boundary this function exists to define, the vacuous pass H-24 reported.
     """
-    return run_all_checks(paths, schema_dir, verbose, checks or CHECKS)
+    selected = CHECKS if checks is None else checks
+    if not allow_empty and (not paths or not selected):
+        reason = "no package paths" if not paths else "no checks selected"
+        message = (
+            f"Refusing to report success: {reason}. Validating nothing is "
+            f"not a result — pass allow_empty=True if that is intentional."
+        )
+        return False, {"_": {"passed": False, "errors": [message]}}
+    return run_all_checks(paths, schema_dir, verbose, selected)
 
 
 def print_results(results: dict):

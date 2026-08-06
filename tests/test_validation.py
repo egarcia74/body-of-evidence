@@ -1516,6 +1516,31 @@ class TestValidationContextIsSelfConsistent:
             "The supported API must report the known-invalid package"
         )
 
+    @pytest.mark.parametrize("kwargs", [
+        pytest.param({"paths": []}, id="no-paths"),
+        pytest.param({"checks": {}}, id="no-checks"),
+    ], )
+    def test_supported_api_refuses_to_report_success_for_an_empty_run(self, kwargs):
+        """Invariant 10 at the trust boundary: the API this project points
+        callers at must not answer "passed" for having validated nothing —
+        including when the emptiness comes from the check selection rather
+        than the paths."""
+        import validate as v
+
+        call = {"paths": [self.INVALID_PKG], "schema_dir": SCHEMA_DIR}
+        call.update(kwargs)
+        passed, results = v.validate_paths(**call)
+        assert not passed, f"Empty run reported success: {results}"
+
+        # ...and the refusal is this guard's, opted out of by allow_empty —
+        # not merely some other check happening to fail. (An empty PATH list
+        # still fails afterwards, because validate_schema has its own
+        # vacuous-run guard; that is defence in depth, not this guard.)
+        _, opted_in = v.validate_paths(**call, allow_empty=True)
+        assert "_" not in opted_in, (
+            f"allow_empty=True must lift this guard specifically: {opted_in}"
+        )
+
     def test_containment_is_enforced_within_a_discovery(self):
         """Self-consistency guard against a factory bug (NOT a security
         control — see the test above): a discovery whose documents belong to
@@ -1585,9 +1610,17 @@ class TestValidatorsCannotCorruptEachOther:
         )[0], "Baseline: this package must fail"
 
         mutated = 0
+        # DISTINCT valid version_ids per entity, not one shared literal.
+        # This fixture fails precisely because two files share a version_id;
+        # writing the SAME value into every entity would leave it duplicate-
+        # ridden either way, so the assertion below would hold whether or not
+        # the mutation leaked — a test that passes with the guarantee
+        # withdrawn is not evidence (D-025/M-28's exact failure mode, caught
+        # here by the local CodeRabbit pass and verified by temporarily
+        # reintroducing the shared-graph regression).
         for _path, data in context.entities():
             if "version_id" in data:
-                data["version_id"] = "01JQV" + "0" * 21
+                data["version_id"] = f"01JQV{mutated:021d}"
                 mutated += 1
         assert mutated >= 2, "Probe must actually have mutated the duplicates"
 
@@ -1646,7 +1679,8 @@ class TestSupportedCliEntryPoints:
         assert r.returncode == 0, f"--check {check} failed:\n{r.stdout}\n{r.stderr}"
         assert "Traceback" not in r.stderr
 
-    @pytest.mark.parametrize("check", ["schema", "ids", "references", "orphans", "provenance"])
+    @pytest.mark.parametrize("check", ["schema", "ids", "references", "orphans",
+                                       "provenance", "all"])
     def test_every_check_runs_standalone_against_invalid_packages(self, check):
         """Non-zero exit is the expected outcome here; a crash is not."""
         r = self._run("--check", check, "--root", str(FIXTURES / "invalid"))
