@@ -22,7 +22,6 @@ Checks:
 
 import re
 from pathlib import Path
-from typing import List, Tuple
 
 from boe_files import (
     Diagnostic,
@@ -66,7 +65,7 @@ def run_id_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[Diagnostic]]:
+) -> tuple[bool, list[Diagnostic]]:
     # A symlinked root or an unreadable subtree must not let this check
     # certify a package it did not completely inspect (eighth-pass review
     # M-22 follow-up: fail-closed traversal/root-rejection must cover

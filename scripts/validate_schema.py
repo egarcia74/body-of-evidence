@@ -11,7 +11,6 @@ Package manifests (package.yaml) are validated against schema/package.schema.jso
 
 import json
 from pathlib import Path
-from typing import List, Tuple
 
 from boe_files import (
     Diagnostic,
@@ -75,7 +74,7 @@ def run_schema_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[Diagnostic]]:
+) -> tuple[bool, list[Diagnostic]]:
     """Returns (passed, errors). Counts validated files so callers can detect vacuous runs."""
     if not JSONSCHEMA_AVAILABLE:
         return False, [_err(

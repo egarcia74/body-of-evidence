@@ -35,7 +35,6 @@ validating nothing.
 """
 
 from pathlib import Path
-from typing import List, Tuple
 
 from boe_files import (
     Diagnostic,
@@ -597,7 +596,7 @@ def run_reference_validation(
     investigation_paths: list[Path],
     schema_dir: Path,
     verbose: bool = False,
-) -> Tuple[bool, List[Diagnostic]]:
+) -> tuple[bool, list[Diagnostic]]:
     all_errors = []
 
     # A symlinked package root is rejected outright, before any file
