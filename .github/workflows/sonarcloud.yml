@@ -50,6 +50,14 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/.github/coverage-subprocess
         run: python -m pytest tests/ -v --cov=scripts --cov-report=xml --cov-report=term-missing
 
+      # A silently-missing or empty coverage.xml would let the scan below
+      # run against no coverage input without anyone noticing — make
+      # report generation an explicit, checked contract instead of an
+      # assumption. Plain existence/size check, not an XML parse: this
+      # file is our own CI-generated output, not untrusted input.
+      - name: Verify coverage report was generated
+        run: test -s coverage.xml
+
       # Informational only during pre-alpha baselining: the scan reports to
       # SonarQube Cloud without failing CI on the quality gate. To promote
       # the gate to a hard check once the baseline is clean, set
