@@ -46,9 +46,15 @@ decide the evidentiary model itself.
   "verified" means, what a reference resolves to, what identity is, or what the
   platform claims to guarantee, requires a named human to choose between the
   options and accept the result.
-- **The ADR must record who decided what.** Not "this was reviewed" — which
-  option a human picked, and when. A reader must be able to tell a human
-  decision from an AI recommendation years later.
+- **The ADR must record who decided what, and the SCOPE of what they
+  accepted.** Not "this was reviewed" — the named human, which option they
+  picked (or that a single proposal was accepted with no alternatives
+  offered), the date, and which parts of the ADR their acceptance does and
+  does not cover. Wording, implementation detail and any change bundled
+  alongside are usually NOT covered, and must be attributed separately. A
+  reader must be able to tell a human decision from an AI recommendation
+  years later, and must not have to guess how far the human's agreement
+  extended.
 - **An AI may not accept its own draft**, and may not record agreement it did
   not receive.
 
