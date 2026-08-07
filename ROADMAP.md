@@ -12,8 +12,13 @@ non-vacuous self-proving validation (1 valid + 9 invalid fixture packages),
 
 ## Version 0.2 — Editions, then First Investigations
 
-Order matters: the D-016 Edition design must land BEFORE real investigation
-data accumulates around the mutable manifest model.
+Order matters twice over. The D-016 Edition design had to land BEFORE real
+investigation data accumulated around the mutable manifest model — done.
+And the first pilot investigation now lands BETWEEN phase 1 and phase 2,
+not after phase 4: building all four phases before any real content exists
+would let the design go four phases deep before reality tests it. One small
+pilot on the phase-1 Edition model is the cheapest available falsification
+of the design, and the same total work either way.
 
 - [x] D-016 Edition ADR: immutable content-addressed edition manifests,
       RFC 8785 canonical JSON releases, Edition-scoped reference
@@ -25,6 +30,21 @@ data accumulates around the mutable manifest model.
       test that mutates a file between validation and publication. Without
       this the implementation can re-read and silently reintroduce the
       TOCTOU defect D-027 left to this ADR
+- [ ] **First pilot investigation on the phase-1 Edition model** —
+      resequenced ahead of phases 2-4 (2026-08-07). One small, real
+      investigation compiled to an Edition, to falsify the design against
+      actual content before three more phases are built on it. What it is
+      looking for: whether Edition-scoped resolution is workable in
+      practice, whether the working-head/Edition split is comprehensible
+      to an author, and whether compile/verify are usable
+- [ ] Schema bundle preservation (`schema/v{N}/`) and preserved
+      methodology versions — named in D-016 as a prerequisite before an
+      Edition can be called fully self-verifying, and scheduled HERE
+      (2026-08-07) rather than left ownerless: an Edition can already name
+      its `schema_version` without being able to resolve it to bytes, and
+      this gets materially more expensive once real investigations exist.
+      Must land before phase 4, since a signature over a digest whose
+      schema cannot be resolved verifies less than it appears to
 - [ ] D-016 phase 2: Edition-scoped reference resolution; removes
       D-023/H-21's interim `referencing_is_current` rule (and is where
       `validate_manifest`'s deferred complexity is discharged)
@@ -33,9 +53,6 @@ data accumulates around the mutable manifest model.
 - [ ] D-016 phase 4: signature envelope (detached `.sig` over the
       Edition content digest) — envelope designed in D-016, implementation
       deferred; moved here from Unprioritised/Future
-- [ ] Schema bundle preservation (`schema/v{N}/`) and preserved
-      methodology versions — named in D-016 as a prerequisite before an
-      Edition can be called fully self-verifying
 - [ ] Evidence→Source-version, artifact-digest, and selector anchoring (H-04)
 - [ ] Assessment graph semantics: link ownership, contrary-evidence
       completeness, confidence ceilings (H-03)
@@ -44,7 +61,8 @@ data accumulates around the mutable manifest model.
 - [ ] Inbound rights decision (DCO/CLA) and data/content licensing (H-09)
 - [ ] Privacy, redaction, and retention policy before any investigation
       involving living people (H-10)
-- [ ] Publish 2–3 heterogeneous pilot investigations on the edition model
+- [ ] Publish 1-2 additional heterogeneous pilot investigations, for
+      2-3 total on the Edition model including the first one above
 - [ ] Dead link checker; calendar-valid dates; YAML resource limits
 - [ ] At least 2 peer reviews completed to test the review process
 
