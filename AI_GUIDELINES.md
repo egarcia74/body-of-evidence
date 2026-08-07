@@ -34,6 +34,32 @@ AI tools may NOT be used for:
 
 ---
 
+## Architecture and Design Decisions
+
+`Schema and tooling` above permits AI to write platform code. That exemption was
+written when "platform work" meant validation scripts. It is not a licence to
+decide the evidentiary model itself.
+
+- **AI may draft an architecture decision record.** Drafting a design, laying out
+  the options, and arguing the trade-offs is permitted and useful.
+- **A human must accept it.** An ADR that changes what a release *is*, what
+  "verified" means, what a reference resolves to, what identity is, or what the
+  platform claims to guarantee, requires a named human to choose between the
+  options and accept the result.
+- **The ADR must record who decided what.** Not "this was reviewed" — which
+  option a human picked, and when. A reader must be able to tell a human
+  decision from an AI recommendation years later.
+- **An AI may not accept its own draft**, and may not record agreement it did
+  not receive.
+
+This exists because the line between "tooling" and "the evidence model" is
+thinner than it looks: D-016 was engineering by the old definition, and decided
+how evidence integrity works. See D-016's decision record for the intended
+shape — three options put to the sponsor, each with a recommendation, the choice
+recorded.
+
+---
+
 ## Disclosure
 
 When AI tools contributed materially to a contribution — for example, if an AI tool drafted a significant portion of an investigation scaffold or suggested a structural approach — that should be noted in the PR description. This is not a penalty; it is a record. The platform's eventual audit trail should include what tools were used.

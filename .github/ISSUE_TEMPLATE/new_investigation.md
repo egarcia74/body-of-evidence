@@ -23,6 +23,31 @@ assignees: ""
 
 <!-- What makes this investigation suitable for Body of Evidence? What is the public interest? -->
 
+## Subject and Privacy Gate
+
+**Does this investigation involve living people?** (yes / no)
+
+<!--
+If YES, this proposal CANNOT proceed yet. The privacy, redaction, and
+retention policy (H-10) does not exist — see ROADMAP.md. This is a hard
+prerequisite, not a warning: publishing evidence about living people
+without a retention and redaction policy is the failure mode this platform
+exists to avoid. Safely historical subjects, or subjects involving only
+organisations and public records, are unaffected.
+-->
+
+**Are all primary sources publicly obtainable by a third party?** (yes / no)
+
+<!--
+If NO, METHODOLOGY.md caps any finding resting on them at confidence
+level 3 (moderate). Say which sources are affected.
+-->
+
+**Rights:** can these documents legally be redistributed? The repository
+licence covers this project's own content, not third-party documents.
+
+---
+
 ## Lead Investigator
 
 **GitHub username:**
