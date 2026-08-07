@@ -171,6 +171,19 @@ body:
     validations:
       required: true
 
+  # CONTRIBUTING.md:32 requires a named lead investigator, and :101 lists its
+  # absence as grounds for rejection. The `resources` checkboxes below are
+  # optional and identify nobody, so until this field existed the form could
+  # not enforce a requirement the contribution contract already made.
+  - type: input
+    id: lead_investigator
+    attributes:
+      label: Lead investigator
+      description: >-
+        GitHub handle or full name. Name yourself if you are leading it.
+    validations:
+      required: true
+
   # CONTRIBUTING.md requires at least three primary sources and two initial
   # claims. A single textarea labelled "at least 3" cannot enforce that — and a
   # PREFILLED one is worse than unenforced: `value:` makes the field non-empty
