@@ -25,7 +25,10 @@ Backwards-compatible additions to schema or platform capabilities. A `MINOR` bum
 - New optional fields added to existing entity types
 - New entity types added
 - New tools, scripts, or platform features
-- New investigations published (investigations are platform content, not schema)
+- ~~New investigations published~~ — **no longer a MINOR trigger.** Publishing investigation content does not
+  version the platform; a package carries its own `release_version` (see Release Tags below). Coupling them
+  would force a platform release for every investigation. Changed 2026-08-06 with D-016; nothing depended on
+  the old rule, because no investigations are published yet.
 
 Existing valid entity files continue to validate against the new schema.
 
@@ -52,4 +55,6 @@ All version changes are documented in [CHANGELOG.md](CHANGELOG.md).
 
 ## Release Tags
 
-Releases are tagged in Git as `v{MAJOR}.{MINOR}.{PATCH}`. Investigations published within a version are part of that version's tag.
+Releases are tagged in Git as `v{MAJOR}.{MINOR}.{PATCH}`. **This versions the PLATFORM** — the schema, tooling and documentation.
+
+An investigation package carries its own `release_version` in `package.yaml`, which `package.schema.json` defines as "independent of the platform/schema version." Platform version and package release version are therefore two separate axes: a Git tag does not determine which release of an investigation it contains. (An earlier version of this section said investigations published within a version are "part of that version's tag," which contradicted the manifest schema. Corrected 2026-08-06 while designing D-016, which makes the package-release axis explicit as an Edition.)

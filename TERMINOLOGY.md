@@ -90,6 +90,15 @@ A primary or secondary document, recording, or artefact from which evidence is e
 
 **Package Manifest** — `package.yaml` in each investigation: declares which entity versions are current, the schema and methodology versions, dependencies, and maintainers. The single source of truth for current state.
 
+**Edition** *(designed, not implemented)* — An immutable release of one investigation package. Two distinct fields, deliberately not conflated: `edition_id` is `boe:edition:<ulid>`, an **opaque identity** that follows the same grammar as every other `boe:` ID and says nothing about content; `content_digest` is a **SHA-256 over the Edition's RFC 8785 canonical JSON**, and is what binds that identity to specific bytes. An Edition lists the exact `version_id` and byte digest of every entity in the release, and records its parent Edition's id and digest — for the first (genesis) Edition of a package both parent fields are serialised as JSON `null`. Compiled from the working head at release time. See "The D-016 design" in DECISIONS.md. **No Edition exists yet and no tooling produces one.**
+
+**Working head** *(designed, not implemented)* — What `package.yaml` becomes once Editions exist: the mutable current authoring state, as distinct from an immutable released Edition. Today `package.yaml` is still both.
+
+**Content digest** — A SHA-256 that binds an identifier to the content it names. D-016 uses it in two distinct ways, which must not be conflated:
+
+- **Over exact stored bytes** — source artifacts (`artifacts[].sha256`, already in use) and entity files (`members[].digest`). The hash is of the file as stored, byte for byte.
+- **Over a canonical serialisation** — an Edition's `content_digest` is a SHA-256 of the RFC 8785 canonical JSON of the Edition *body*, **not** of the `.json` file as stored. The stored file may differ in whitespace or key order and still be the same Edition; the canonical form is what is hashed. Two implementations that disagree on this produce incompatible Editions, which is why it is stated separately here.
+
 **MCP** — Model Context Protocol. A standard for exposing structured data and tools to AI agents. The evidence model is designed to be queryable via MCP.
 
 **JSON Schema** — The schema language used to define and validate entity structure. All schemas live in `schema/`.

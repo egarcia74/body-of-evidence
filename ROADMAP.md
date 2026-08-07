@@ -15,9 +15,27 @@ non-vacuous self-proving validation (1 valid + 9 invalid fixture packages),
 Order matters: the D-016 Edition design must land BEFORE real investigation
 data accumulates around the mutable manifest model.
 
-- [ ] D-016 Edition ADR: immutable content-addressed edition manifests,
-      RFC 8785 canonical JSON releases, version-pinned references —
-      designed as one unit (C-02/C-03 from the reviews)
+- [x] D-016 Edition ADR: immutable content-addressed edition manifests,
+      RFC 8785 canonical JSON releases, Edition-scoped reference
+      resolution — designed as one unit (C-02/C-03 from the reviews).
+      DESIGN ONLY; implementation is the four phases below.
+- [ ] D-016 phase 1: `edition.schema.json`, editions compile + verify, AND
+      validated-byte publication (publish from retained bytes or a
+      content-addressed snapshot — never a re-read), with the regression
+      test that mutates a file between validation and publication. Without
+      this the implementation can re-read and silently reintroduce the
+      TOCTOU defect D-027 left to this ADR
+- [ ] D-016 phase 2: Edition-scoped reference resolution; removes
+      D-023/H-21's interim `referencing_is_current` rule (and is where
+      `validate_manifest`'s deferred complexity is discharged)
+- [ ] D-016 phase 3: `imports` replaces the unenforced `dependencies`
+      field; cross-package references resolve through pinned Editions
+- [ ] D-016 phase 4: signature envelope (detached `.sig` over the
+      Edition content digest) — envelope designed in D-016, implementation
+      deferred; moved here from Unprioritised/Future
+- [ ] Schema bundle preservation (`schema/v{N}/`) and preserved
+      methodology versions — named in D-016 as a prerequisite before an
+      Edition can be called fully self-verifying
 - [ ] Evidence→Source-version, artifact-digest, and selector anchoring (H-04)
 - [ ] Assessment graph semantics: link ownership, contrary-evidence
       completeness, confidence ceilings (H-03)
@@ -90,7 +108,8 @@ Production-ready. Schema is stable. API is versioned.
 
 Ideas that may be incorporated in future versions, not yet scheduled:
 
-- Cryptographic signing of investigation states
+- Cryptographic signing key management and trust model (the signature
+  envelope itself is designed in D-016 and scheduled in 0.2 above)
 - IPFS/content-addressed source archiving
 - DOI registration for investigations
 - Integration with Wikimedia sources

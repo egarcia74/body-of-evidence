@@ -213,7 +213,7 @@ The validation pipeline currently checks:
 
 **Non-vacuous by construction:** `validate.py` fails if there is nothing to validate, and `validate.py --self-test` proves the validators work by requiring that `fixtures/valid/` passes every check and every `fixtures/invalid/*` package is rejected. CI runs the self-test, the unit tests, and investigation validation on every PR.
 
-Not yet implemented (see [ROADMAP.md](ROADMAP.md)): dead-link checking, calendar-valid date checking, cross-package dependency resolution, finding-confidence-ceiling enforcement, deterministic canonical JSON output. These are listed here so the documentation does not claim more than the code does.
+Not yet implemented (see [ROADMAP.md](ROADMAP.md)): dead-link checking, calendar-valid date checking, cross-package dependency resolution, finding-confidence-ceiling enforcement, deterministic canonical JSON output, and immutable Editions (D-016 — designed 2026-08-06, not built; until then `package.yaml` is both the working head and the release authority, as described above). These are listed here so the documentation does not claim more than the code does.
 
 Local validation: `python scripts/validate.py --self-test` then `python scripts/validate.py`
 
