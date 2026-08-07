@@ -61,8 +61,8 @@ of the design, and the same total work either way.
 - [ ] Inbound rights decision (DCO/CLA) and data/content licensing (H-09)
 - [ ] Privacy, redaction, and retention policy before any investigation
       involving living people (H-10)
-- [ ] Publish the remaining heterogeneous pilot investigations (2-3 total,
-      including the first one above) on the edition model
+- [ ] Publish 1-2 additional heterogeneous pilot investigations, for
+      2-3 total on the Edition model including the first one above
 - [ ] Dead link checker; calendar-valid dates; YAML resource limits
 - [ ] At least 2 peer reviews completed to test the review process
 
