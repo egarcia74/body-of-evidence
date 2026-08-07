@@ -87,8 +87,13 @@ body:
     attributes:
       label: Which sources are not publicly obtainable?
       description: >-
-        Leave blank if all are. Listing them applies the confidence ceiling
-        deliberately rather than discovering it at review.
+        Write "N/A — all are publicly obtainable" if you answered Yes above.
+        Required either way: an issue form cannot make one field conditional on
+        another, so the choice is between always asking and letting a "No"
+        arrive with no sources named. Naming them applies METHODOLOGY.md's
+        confidence ceiling deliberately rather than discovering it at review.
+    validations:
+      required: true
 
   - type: textarea
     id: public_interest
@@ -166,28 +171,75 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: sources
+  # CONTRIBUTING.md:32 requires a named lead investigator, and :101 lists its
+  # absence as grounds for rejection. The `resources` checkboxes below are
+  # optional and identify nobody, so until this field existed the form could
+  # not enforce a requirement the contribution contract already made.
+  - type: input
+    id: lead_investigator
     attributes:
-      label: Primary sources (at least 3)
-      description: One per line — Title | URL or location | Type
-      value: |
-        1.
-        2.
-        3.
+      label: Lead investigator
+      description: >-
+        GitHub handle or full name. Name yourself if you are leading it.
+    validations:
+      required: true
+
+  # CONTRIBUTING.md requires at least three primary sources and two initial
+  # claims. A single textarea labelled "at least 3" cannot enforce that — and a
+  # PREFILLED one is worse than unenforced: `value:` makes the field non-empty
+  # before the submitter types anything, so `required: true` is satisfied by the
+  # numbering alone. One field per source is the only shape in which the count
+  # is actually a floor.
+  - type: input
+    id: source_1
+    attributes:
+      label: Primary source 1
+      description: Title | URL or location | Type
+    validations:
+      required: true
+
+  - type: input
+    id: source_2
+    attributes:
+      label: Primary source 2
+      description: Title | URL or location | Type
+    validations:
+      required: true
+
+  - type: input
+    id: source_3
+    attributes:
+      label: Primary source 3
+      description: Title | URL or location | Type
     validations:
       required: true
 
   - type: textarea
-    id: claims
+    id: sources_additional
     attributes:
-      label: Initial claims (2-3)
+      label: Further primary sources
+      description: One per line, same format. Optional — three is the floor, not a target.
+
+  - type: input
+    id: claim_1
+    attributes:
+      label: Initial claim 1
       description: These will be refined during the investigation.
-      value: |
-        1.
-        2.
     validations:
       required: true
+
+  - type: input
+    id: claim_2
+    attributes:
+      label: Initial claim 2
+    validations:
+      required: true
+
+  - type: input
+    id: claim_3
+    attributes:
+      label: Initial claim 3
+      description: Optional.
 
   - type: checkboxes
     id: resources
