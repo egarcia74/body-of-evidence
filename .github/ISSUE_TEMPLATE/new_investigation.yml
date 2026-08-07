@@ -1,0 +1,204 @@
+name: New Investigation Proposal
+description: Propose a new investigation to be added to the platform
+title: "[INVESTIGATION] <proposed slug>"
+labels: ["new-investigation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Prerequisite checks
+
+        The four blocking questions below are **required** and each blocks on
+        "unsure" as well as "yes". They enforce prohibitions that are already
+        normative in [CONTRIBUTING.md](../../CONTRIBUTING.md) and
+        [ETHICS.md](../../ETHICS.md), at proposal time rather than after work
+        has started.
+
+        This is **not** a privacy assessment. The privacy, redaction and
+        retention policy (H-10) does not exist yet — see
+        [ROADMAP.md](../../ROADMAP.md) — so retention and redaction decisions
+        cannot be recorded here. These fields force an answer; they cannot
+        verify one. A maintainer still reviews every proposal.
+
+  - type: dropdown
+    id: living_people
+    attributes:
+      label: 1. Does this investigation involve living people?
+      description: >-
+        YES blocks. The privacy, redaction and retention policy (H-10) does not
+        exist, and public Git history cannot be reliably purged.
+      options: ["No", "Yes — I understand this blocks the proposal", "Unsure"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: personal_data
+    attributes:
+      label: >-
+        2. Does any source contain personal data about private individuals
+        beyond what the public-interest scope strictly requires?
+      description: >-
+        YES or UNSURE blocks. "No living people" does not exempt a proposal:
+        deceased individuals have surviving relatives, and public records
+        routinely contain third-party personal data.
+      options: ["No", "Yes", "Unsure"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: confidential
+    attributes:
+      label: >-
+        3. Is any material confidential, from a confidential source, or subject
+        to a request for anonymity?
+      description: >-
+        YES or UNSURE blocks. Confidential material is prohibited entirely until
+        a private vault exists. Where a source requested anonymity, the correct
+        action today is to not use that source's material at all.
+      options: ["No", "Yes", "Unsure"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: redistribution_rights
+    attributes:
+      label: 4. Can every third-party document be legally redistributed?
+      description: >-
+        NO or UNSURE blocks for the affected documents. The repository licence
+        covers this project's own content, not third-party documents. Cite a
+        source rather than redistributing it.
+      options: ["Yes", "No", "Unsure"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: obtainable
+    attributes:
+      label: 5. Are all primary sources publicly obtainable by a third party?
+      description: >-
+        Does NOT block. If no, METHODOLOGY.md caps any finding resting on those
+        sources at confidence level 3 (moderate).
+      options: ["Yes", "No — see the note below"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: obtainable_detail
+    attributes:
+      label: Which sources are not publicly obtainable?
+      description: >-
+        Leave blank if all are. Listing them applies the confidence ceiling
+        deliberately rather than discovering it at review.
+
+  - type: textarea
+    id: public_interest
+    attributes:
+      label: 6a. Public interest served by publication
+      description: ETHICS.md "Harm Awareness" — required even when 1-4 are clear.
+    validations:
+      required: true
+
+  - type: textarea
+    id: potential_harm
+    attributes:
+      label: 6b. Potential harm from publication, including to third parties
+    validations:
+      required: true
+
+  - type: textarea
+    id: mitigations
+    attributes:
+      label: 6c. Mitigations
+      description: What reduces the harm identified above? Write "none needed" if so.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: proposer_conclusion
+    attributes:
+      label: 6d. Your conclusion on the balance
+      description: >-
+        Your assessment, not the decision. A maintainer decides whether the
+        proposal proceeds.
+      options:
+        ["Public interest outweighs the harm", "It does not", "Genuinely unsure"]
+    validations:
+      required: true
+
+  - type: input
+    id: title
+    attributes:
+      label: Investigation title
+    validations:
+      required: true
+
+  - type: input
+    id: slug
+    attributes:
+      label: Proposed slug
+      description: kebab-case, e.g. `church-committee`
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: >-
+        What questions will this address? What time period? What is explicitly
+        OUT of scope?
+    validations:
+      required: true
+
+  - type: textarea
+    id: belongs
+    attributes:
+      label: Why this investigation belongs here
+    validations:
+      required: true
+
+  - type: input
+    id: conflict_of_interest
+    attributes:
+      label: Conflict of interest
+      description: >-
+        Any relationship with the investigation subject. Write "none" if none.
+    validations:
+      required: true
+
+  - type: textarea
+    id: sources
+    attributes:
+      label: Primary sources (at least 3)
+      description: One per line — Title | URL or location | Type
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: claims
+    attributes:
+      label: Initial claims (2-3)
+      description: These will be refined during the investigation.
+      value: |
+        1.
+        2.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: resources
+    attributes:
+      label: Resources required
+      options:
+        - label: I can lead this investigation myself
+        - label: I need co-investigators
+        - label: I need a reviewer with domain expertise
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
