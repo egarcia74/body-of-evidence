@@ -17,7 +17,7 @@ python-ulid==4.0.1
 
 # Test runner (used by CI)
 # 9.0.3 fixes GHSA-6w46-j5rx-g56g (tmpdir/tmp_path symlink-attack advisory)
-pytest==9.1.1
+pytest==9.2.0
 
 # Coverage measurement for pytest (used by CI to produce coverage.xml for
 # SonarQube Cloud's sonar.python.coverage.reportPaths; no minimum threshold
